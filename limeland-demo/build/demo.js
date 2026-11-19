@@ -207,8 +207,8 @@ const state = {
   time: 60, camX: -200, camY: 320, falls: 0, pizza: 0, shake: 0, lives: 3, bumpCd: 0
 };
 const checkpoint = { x: -180, y: 0 };
-const p1 = { x: -380, y: 0, vx: 0, vy: 0, grounded: false, squash: 0, jumpQueued: false, hit: 0 };
-const p2 = { x: 20, y: 0, vx: 0, vy: 0, grounded: false, squash: 0, jumpQueued: false, hit: 0 };
+const p1 = { x: -380, y: 0, vx: 0, vy: 0, grounded: false, squash: 0, jumpQueued: false, hit: 0, coyote: 0, buffer: 0, invuln: 0 };
+const p2 = { x: 20, y: 0, vx: 0, vy: 0, grounded: false, squash: 0, jumpQueued: false, hit: 0, coyote: 0, buffer: 0, invuln: 0 };
 const chars = {};
 const PIZZA_POS = [{ x: 680, y: 210 }, { x: 1450, y: 300 }, { x: 2680, y: 330 }];
 const pizzas = [];
@@ -1023,11 +1023,15 @@ window.addEventListener('keydown', function (e) {
   if (e.code === 'KeyR') {
     if (screen === 'play' || screen === 'pause' || screen === 'result') beginSequence();
   }
-  if (e.code === 'KeyW' && screen === 'play') p1.jumpQueued = true;
-  if (e.code === 'ArrowUp' && screen === 'play') p2.jumpQueued = true;
+  if (e.code === 'KeyW' && screen === 'play') p1.buffer = 0.13;
+  if (e.code === 'ArrowUp' && screen === 'play') p2.buffer = 0.13;
   if ((e.code === 'KeyF' || e.code === 'KeyJ') && screen === 'play') beep(180, 0.12, 'triangle', 0.03);
 });
-window.addEventListener('keyup', function (e) { keys[e.code] = false; });
+window.addEventListener('keyup', function (e) {
+  keys[e.code] = false;
+  if (e.code === 'KeyW' && p1.vy > 0) p1.vy *= 0.55;
+  if (e.code === 'ArrowUp' && p2.vy > 0) p2.vy *= 0.55;
+});
 window.addEventListener('blur', function () { for (const k in keys) keys[k] = false; });
 
 /* ---------------- 游戏逻辑 ---------------- */
@@ -1214,6 +1218,7 @@ function respawn(p) {
   p.x = checkpoint.x; p.y = checkpoint.y + 4;
   p.vx = 0; p.vy = 0;
   state.falls++;
+  p.invuln = 1.0;
   log('fall', { x: Math.round(p.x) });
   beep(140, 0.2, 'sawtooth', 0.04);
   state.lives--;
@@ -1236,26 +1241,30 @@ function step(dt) {
     if (!left && !right) p.vx *= Math.pow(0.0006, dt);
     p.vx = Math.max(-TUNE.maxSpeed, Math.min(TUNE.maxSpeed, p.vx));
 
-    if (p.jumpQueued) {
-      if (p.grounded && canMove) {
-        const other = i === 0 ? p2 : p1;
-        const ropeDist = Math.hypot(p.x - other.x, p.y - other.y);
-        const boosted = ropeDist > TUNE.flingThreshold;
-        p.vy = TUNE.jump * (boosted ? TUNE.flingLift : 1);
-        if (boosted) {
-          p.vx += (p.x < other.x ? -1 : 1) * TUNE.flingPush;
-          ropeWobble = 1;
-          state.shake = 6;
-          beep(760, 0.16, 'triangle', 0.05);
-          toast('甩出去了！', 0.9);
-          spawnGhost(p, i === 0 ? chars.green : chars.pink);
-          log('fling', { x: Math.round(p.x) });
-        } else {
-          beep(440, 0.1, 'sine', 0.035);
-        }
-        p.grounded = false;
+    if (p.grounded) p.coyote = 0.1;
+    else p.coyote = Math.max(0, p.coyote - dt);
+    p.buffer = Math.max(0, p.buffer - dt);
+    p.invuln = Math.max(0, p.invuln - dt);
+
+    if (p.buffer > 0 && canMove && (p.grounded || p.coyote > 0)) {
+      p.buffer = 0;
+      p.coyote = 0;
+      const other = i === 0 ? p2 : p1;
+      const ropeDist = Math.hypot(p.x - other.x, p.y - other.y);
+      const boosted = ropeDist > TUNE.flingThreshold;
+      p.vy = TUNE.jump * (boosted ? TUNE.flingLift : 1);
+      if (boosted) {
+        p.vx += (p.x < other.x ? -1 : 1) * TUNE.flingPush;
+        ropeWobble = 1;
+        state.shake = 6;
+        beep(760, 0.16, 'triangle', 0.05);
+        toast('甩出去了！', 0.9);
+        spawnGhost(p, i === 0 ? chars.green : chars.pink);
+        log('fling', { x: Math.round(p.x) });
+      } else {
+        beep(440, 0.1, 'sine', 0.035);
       }
-      p.jumpQueued = false;
+      p.grounded = false;
     }
     p.vy -= TUNE.gravity * dt;
     const prevY = p.y;
@@ -1312,7 +1321,7 @@ function step(dt) {
     const ex = Math.cos(hazard.ang) * hazard.len / 2;
     const ey = Math.sin(hazard.ang) * hazard.len / 2;
     [p1, p2].forEach(function (p) {
-      if (p.hit > 0) return;
+      if (p.hit > 0 || p.invuln > 0) return;
       if (distToSeg(p.x, p.y + 85, hazard.cx - ex, hazard.cy - ey, hazard.cx + ex, hazard.cy + ey) < 54) {
         p.hit = 0.55;
         p.vx += (p.x < hazard.cx ? -1 : 1) * 430;
@@ -1327,7 +1336,8 @@ function step(dt) {
   state.shake *= Math.pow(0.02, dt * 2.5);
 
   ropeStep(dt);
-  state.camX += (Math.max(-260, Math.min(3600, (p1.x + p2.x) / 2 + 60)) - state.camX) * Math.min(1, dt * 4);
+  const lookAhead = (p1.vx + p2.vx) * 0.11;
+  state.camX += (Math.max(-260, Math.min(3600, (p1.x + p2.x) / 2 + 60 + lookAhead)) - state.camX) * Math.min(1, dt * 4);
   state.camY += (Math.max(200, Math.min(560, (p1.y + p2.y) / 2 + 140)) - state.camY) * Math.min(1, dt * 3);
 }
 
@@ -1373,6 +1383,7 @@ function updateVisuals(dt) {
     const zOrder = i === 0 ? (p1.y >= p2.y ? 21 : 20) : (p2.y >= p1.y ? 21 : 20);
     c.mesh.position.set(p.x, p.y + 85, zOrder);
     c.mesh.renderOrder = i === 0 ? (p1.y >= p2.y ? 11 : 10) : (p2.y > p1.y ? 11 : 10);
+    c.mesh.visible = !(p.invuln > 0 && Math.floor(perf * 14) % 2 === 0);
     c.mesh.rotation.z = Math.max(-0.14, Math.min(0.14, p.vx / 2800));
     c.mesh.scale.set(1 + p.squash, 1 - p.squash, 1);
     c.glow.position.set(p.x, p.y + 85, 12);
