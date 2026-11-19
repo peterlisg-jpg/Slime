@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>骨骼动画样例 · 拉丝 LIMELAND</title>
+<style>
+  html,body{
+    margin:0;height:100%;background:#0E0322;overflow:hidden;
+    font-family:"PingFang SC","Noto Sans SC","Microsoft YaHei",system-ui,sans-serif;
+    color:#EDE6FF;
+  }
+  .app{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;}
+  canvas{display:block;border-radius:16px;box-shadow:0 24px 80px rgba(0,0,0,.6),0 0 0 1px rgba(198,242,78,.12);}
+  .bar{
+    display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:8px 14px;
+    padding:8px 14px;border-radius:14px;background:rgba(255,255,255,.04);
+    border:1px solid rgba(255,255,255,.08);max-width:96vw;
+  }
+  button{
+    border:1px solid rgba(198,242,78,.25);background:rgba(198,242,78,.06);color:#DDE9C0;
+    padding:7px 14px;border-radius:999px;font-size:13px;font-weight:600;cursor:pointer;
+    transition:all .15s;font-family:inherit;
+  }
+  button:hover{background:rgba(198,242,78,.14);}
+  button.on{background:#C6F24E;color:#1B0A3C;border-color:#C6F24E;box-shadow:0 0 18px rgba(198,242,78,.35);}
+  label{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:#A99BD0;cursor:pointer;}
+  input[type=range]{width:90px;accent-color:#C6F24E;}
+  input[type=checkbox]{accent-color:#C6F24E;}
+  .hint{font-size:12px;color:#6F5F99;}
+</style>
+</head>
+<body>
+<div class="app">
+  <canvas id="rig" width="800" height="980"></canvas>
+  <div class="bar">
+    <button data-m="idle" class="on">待机</button>
+    <button data-m="grab">抓钩</button>
+    <button data-m="pull">拉人</button>
+    <button data-m="fling">甩出</button>
+    <button data-m="land">落地</button>
+    <button data-m="dizzy">撞晕</button>
+    <label><input type="checkbox" id="auto" checked> 自动</label>
+    <label><input type="checkbox" id="showBones"> 显示骨骼</label>
+    <label>软度 <input type="range" id="soft" min="0" max="100" value="55"></label>
+    <span class="hint">现有画稿 + 骨骼链 + 软体形变</span>
+  </div>
+</div>
+<script src="rig.js"></script>
+</body>
+</html>
