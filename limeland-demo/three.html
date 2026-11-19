@@ -47,6 +47,22 @@
     font-weight:800;font-size:14px;letter-spacing:2px;border:0;cursor:pointer;box-shadow:0 0 30px rgba(198,242,78,.35)}
   .go:hover{transform:translateY(-1px)}
   .stat{margin-top:2px;font:600 13px/1.6 ui-monospace,monospace;color:rgba(255,255,255,.6)}
+  .tension{position:absolute;left:50%;bottom:24px;transform:translateX(-50%);width:220px;height:6px;
+    border-radius:3px;background:rgba(255,255,255,.12);overflow:hidden;opacity:.55;transition:opacity .2s}
+  .tension.hot{opacity:1}
+  .tension i{display:block;height:100%;width:0;border-radius:3px;background:linear-gradient(90deg,#C6F24E,#FFFFFF)}
+  .toast{position:absolute;left:50%;top:118px;transform:translateX(-50%);padding:9px 18px;border-radius:999px;
+    background:rgba(10,4,24,.72);border:1px solid rgba(198,242,78,.25);color:#E9FFB0;font-size:14px;
+    letter-spacing:1px;opacity:0;transition:opacity .3s;pointer-events:none;white-space:nowrap}
+  .debug{position:absolute;left:14px;bottom:14px;width:252px;padding:12px;border-radius:12px;
+    background:rgba(8,3,18,.9);border:1px solid rgba(255,255,255,.12);
+    font:11px/1.6 ui-monospace,monospace;color:#cfc4ea;display:none;pointer-events:auto}
+  .debug.on{display:block}
+  .debug label{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:5px 0;color:#9a8fb8}
+  .debug input[type=range]{width:108px;accent-color:#C6F24E}
+  .debug .row{display:flex;gap:6px;margin-top:8px}
+  .debug button{flex:1;padding:5px 4px;border-radius:6px;border:1px solid rgba(198,242,78,.3);
+    background:rgba(198,242,78,.08);color:#dfe9c0;font:600 10px/1.2 inherit;cursor:pointer}
 </style>
 </head>
 <body>
@@ -54,6 +70,22 @@
   <div id="stage"></div>
   <div class="vignette"></div>
   <div class="grain"></div>
+  <div class="tension" id="tension"><i></i></div>
+  <div class="toast" id="toast"></div>
+
+  <div class="debug" id="debug">
+    <div>FPS <b id="fps">0</b> · 按 ` 关闭</div>
+    <label>重力 <input id="sGrav" type="range" min="1200" max="2800" step="10" value="1950"></label>
+    <label>跳跃 <input id="sJump" type="range" min="600" max="1200" step="10" value="880"></label>
+    <label>绳刚度 <input id="sK" type="range" min="4" max="24" step="1" value="10"></label>
+    <label>曝光 <input id="sExp" type="range" min="50" max="130" step="1" value="92"></label>
+    <label>Bloom <input id="sBloom" type="range" min="0" max="100" step="1" value="55"></label>
+    <div class="row">
+      <button id="copyTune">复制参数</button>
+      <button id="dlLog">下载日志</button>
+      <button id="muteBtn">静音</button>
+    </div>
+  </div>
 
   <div class="hud">
     <div class="title">拉丝<span>第 1 关 · 夜光画室</span></div>

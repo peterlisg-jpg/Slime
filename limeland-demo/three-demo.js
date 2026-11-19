@@ -15,6 +15,25 @@ const pizzaEl = document.getElementById('pizza');
 const endStarsEl = document.getElementById('endStars');
 const startEl = document.getElementById('start');
 const endEl = document.getElementById('end');
+const toastEl = document.getElementById('toast');
+const tensionEl = document.getElementById('tension');
+const tensionFill = tensionEl.querySelector('i');
+const debugEl = document.getElementById('debug');
+const fpsEl = document.getElementById('fps');
+
+/* 可调参数（G1：全部外置，调试面板实时改） */
+const TUNE = {
+  gravity: 1950, jump: 880, moveAccel: 3400, maxSpeed: 450,
+  ropeRest: 330, ropePull: 110, ropeMax: 640, ropeK: 10,
+  pullSpeed: 680, releaseSpeed: 480,
+  flingThreshold: 350, flingPush: 320, flingLift: 1.14
+};
+
+/* 本局日志（G1：先本地记录，后续接上报） */
+const TELE = { startedAt: Date.now(), events: [], summary: null };
+function log(name, data) {
+  TELE.events.push(Object.assign({ t: +perf.toFixed(2), name: name }, data || {}));
+}
 
 /* ---------------- 渲染器 ---------------- */
 let renderer;
@@ -148,9 +167,9 @@ const PLATFORMS = [
   { x0: 1160, x1: 1560, y: 140 },
   { x0: 1840, x1: 2240, y: 60 },
   { x0: 2520, x1: 2920, y: 180 },
-  { x0: 3200, x1: 4080, y: 260 }
+  { x0: 3360, x1: 4200, y: 260 }
 ];
-const EXIT_X = 3820;
+const EXIT_X = 3940;
 
 const state = {
   started: false, over: false, win: false,
@@ -171,6 +190,8 @@ let ropePts = [], ropeWobble = 0, ropeTaut = false;
 let ropeRest = 330;
 let ready = false;
 let perf = 0;
+let toastT = 0;
+let flingTutorial = false;
 const keys = Object.create(null);
 
 /* ---------------- 场景搭建 ---------------- */
@@ -431,6 +452,11 @@ function buildHazard() {
 function updatePizzaHUD() {
   pizzaEl.innerHTML = '披萨 <b>' + state.pizza + '</b> / 3';
 }
+function toast(text, d) {
+  toastEl.textContent = text;
+  toastEl.style.opacity = 1;
+  toastT = d || 2;
+}
 
 function distToSeg(px, py, x1, y1, x2, y2) {
   const dx = x2 - x1, dy = y2 - y1, l2 = dx * dx + dy * dy;
@@ -480,17 +506,50 @@ function buildMotes() {
 }
 
 /* ---------------- 音效 ---------------- */
-let AC = null;
-function beep(freq, dur, type, gain) {
-  if (!AC) { try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return; } }
+let AC = null, master = null, muted = false, ambientStarted = false;
+function ensureAudio() {
+  if (!AC) {
+    try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return false; }
+  }
   if (AC.state === 'suspended') AC.resume();
+  if (!master) {
+    master = AC.createGain();
+    master.gain.value = muted ? 0 : 0.9;
+    master.connect(AC.destination);
+  }
+  return true;
+}
+function beep(freq, dur, type, gain) {
+  if (!ensureAudio()) return;
   const t = AC.currentTime, o = AC.createOscillator(), g = AC.createGain();
   o.type = type || 'sine'; o.frequency.setValueAtTime(freq, t);
   g.gain.setValueAtTime(0.0001, t);
   g.gain.exponentialRampToValueAtTime(gain || 0.04, t + 0.01);
   g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-  o.connect(g); g.connect(AC.destination);
+  o.connect(g); g.connect(master);
   o.start(t); o.stop(t + dur + 0.02);
+}
+function startAmbient() {
+  if (!ensureAudio() || ambientStarted) return;
+  ambientStarted = true;
+  const bus = AC.createGain();
+  bus.gain.value = 0;
+  bus.connect(master);
+  [98, 147, 196].forEach(function (f, i) {
+    const o = AC.createOscillator();
+    o.type = i ? 'sine' : 'triangle';
+    o.frequency.value = f;
+    const g = AC.createGain();
+    g.gain.value = i ? 0.010 : 0.016;
+    o.connect(g); g.connect(bus); o.start();
+  });
+  bus.gain.linearRampToValueAtTime(0.055, AC.currentTime + 2.5);
+}
+function toggleMute() {
+  muted = !muted;
+  if (master) master.gain.value = muted ? 0 : 0.9;
+  const b = document.getElementById('muteBtn');
+  if (b) b.textContent = muted ? '取消静音' : '静音';
 }
 
 /* ---------------- 输入 ---------------- */
@@ -520,6 +579,9 @@ function resetGame() {
   initRope();
   state.time = 60; state.over = false; state.win = false; state.falls = 0;
   state.pizza = 0; state.shake = 0;
+  flingTutorial = false;
+  toastT = 0;
+  toastEl.style.opacity = 0;
   pizzas.forEach(function (pz) {
     pz.taken = false; pz.sprite.visible = true; pz.glow.visible = true;
   });
@@ -534,12 +596,15 @@ function startGame() {
   state.started = true;
   startEl.classList.add('hidden');
   beep(520, 0.18, 'sine', 0.05);
+  log('start');
+  startAmbient();
 }
 function restart() {
   resetGame();
   state.started = true;
   startEl.classList.add('hidden');
   endEl.classList.add('hidden');
+  log('restart');
 }
 function endGame(win) {
   state.over = true;
@@ -557,11 +622,17 @@ function endGame(win) {
     : '差一点 · 披萨 ' + state.pizza + '/3 · 掉下去 ' + state.falls + ' 次';
   endEl.classList.remove('hidden');
   if (win) beep(660, 0.2, 'triangle', 0.05);
+  log(win ? 'win' : 'lose', { time: +state.time.toFixed(1), pizza: state.pizza, falls: state.falls });
+  TELE.summary = {
+    win: win, elapsed: +(60 - state.time).toFixed(1),
+    pizza: state.pizza, falls: state.falls, stars: stars
+  };
 }
 function respawn(p) {
   p.x = checkpoint.x; p.y = checkpoint.y + 4;
   p.vx = 0; p.vy = 0;
   state.falls++;
+  log('fall', { x: Math.round(p.x) });
   beep(140, 0.2, 'sawtooth', 0.04);
 }
 
@@ -573,16 +644,32 @@ function step(dt) {
     const canMove = p.hit <= 0;
     const left = canMove && (i === 0 ? keys['KeyA'] : keys['ArrowLeft']);
     const right = canMove && (i === 0 ? keys['KeyD'] : keys['ArrowRight']);
-    if (left) p.vx -= 3400 * dt;
-    if (right) p.vx += 3400 * dt;
+    if (left) p.vx -= TUNE.moveAccel * dt;
+    if (right) p.vx += TUNE.moveAccel * dt;
     if (!left && !right) p.vx *= Math.pow(0.0006, dt);
-    p.vx = Math.max(-450, Math.min(450, p.vx));
+    p.vx = Math.max(-TUNE.maxSpeed, Math.min(TUNE.maxSpeed, p.vx));
 
     if (p.jumpQueued) {
-      if (p.grounded && canMove) { p.vy = 880; p.grounded = false; beep(440, 0.1, 'sine', 0.035); }
+      if (p.grounded && canMove) {
+        const other = i === 0 ? p2 : p1;
+        const ropeDist = Math.hypot(p.x - other.x, p.y - other.y);
+        const boosted = ropeDist > TUNE.flingThreshold;
+        p.vy = TUNE.jump * (boosted ? TUNE.flingLift : 1);
+        if (boosted) {
+          p.vx += (p.x < other.x ? -1 : 1) * TUNE.flingPush;
+          ropeWobble = 1;
+          state.shake = 6;
+          beep(760, 0.16, 'triangle', 0.05);
+          toast('甩出去了！', 0.9);
+          log('fling', { x: Math.round(p.x) });
+        } else {
+          beep(440, 0.1, 'sine', 0.035);
+        }
+        p.grounded = false;
+      }
       p.jumpQueued = false;
     }
-    p.vy -= 1950 * dt;
+    p.vy -= TUNE.gravity * dt;
     const prevY = p.y;
     p.x += p.vx * dt;
     p.y += p.vy * dt;
@@ -609,6 +696,7 @@ function step(dt) {
         pz.glow.visible = false;
         state.pizza++;
         updatePizzaHUD();
+        log('pizza', { n: state.pizza });
         beep(900, 0.16, 'triangle', 0.05);
         ring(pz.x, pz.y, 0xFFC94A);
       }
@@ -628,13 +716,14 @@ function step(dt) {
         p.vy = 470;
         state.shake = 14;
         beep(120, 0.22, 'sawtooth', 0.05);
+        log('hit', { x: Math.round(p.x) });
       }
     });
   }
   state.shake *= Math.pow(0.02, dt * 2.5);
 
   ropeStep(dt);
-  state.camX += (Math.max(-260, Math.min(3320, (p1.x + p2.x) / 2 + 60)) - state.camX) * Math.min(1, dt * 4);
+  state.camX += (Math.max(-260, Math.min(3600, (p1.x + p2.x) / 2 + 60)) - state.camX) * Math.min(1, dt * 4);
   state.camY += (Math.max(200, Math.min(560, (p1.y + p2.y) / 2 + 140)) - state.camY) * Math.min(1, dt * 3);
 }
 
@@ -644,8 +733,8 @@ function ropeStep(dt) {
   let dx = b.x - a.x, dy = b.y - a.y;
   let dist = Math.hypot(dx, dy) || 0.001;
   const pulling = !!keys['KeyF'] || !!keys['KeyJ'];
-  const target = pulling ? 110 : 330;
-  ropeRest += Math.max(-680 * dt, Math.min(480 * dt, target - ropeRest));
+  const target = pulling ? TUNE.ropePull : TUNE.ropeRest;
+  ropeRest += Math.max(-TUNE.pullSpeed * dt, Math.min(TUNE.releaseSpeed * dt, target - ropeRest));
 
   if (dist > ropeRest) {
     const nx = dx / dist, ny = dy / dist;
@@ -653,15 +742,15 @@ function ropeStep(dt) {
     let w1 = 0.5, w2 = 0.5;
     if (p1.grounded && !p2.grounded) { w1 = 0.15; w2 = 0.85; }
     else if (p2.grounded && !p1.grounded) { w1 = 0.85; w2 = 0.15; }
-    const acc = Math.min(1800, stretch * 10);
+    const acc = Math.min(1800, stretch * TUNE.ropeK);
     p1.vx += nx * acc * w1 * dt; p1.vy += ny * acc * w1 * dt;
     p2.vx -= nx * acc * w2 * dt; p2.vy -= ny * acc * w2 * dt;
     const rel = (p2.vx - p1.vx) * nx + (p2.vy - p1.vy) * ny;
     p1.vx += nx * rel * 0.18 * w1; p1.vy += ny * rel * 0.18 * w1;
     p2.vx -= nx * rel * 0.18 * w2; p2.vy -= ny * rel * 0.18 * w2;
   }
-  if (dist > 640) {
-    const nx = dx / dist, ny = dy / dist, ex = dist - 640;
+  if (dist > TUNE.ropeMax) {
+    const nx = dx / dist, ny = dy / dist, ex = dist - TUNE.ropeMax;
     p1.x += nx * ex * 0.5; p1.y += ny * ex * 0.5;
     p2.x -= nx * ex * 0.5; p2.y -= ny * ex * 0.5;
   }
@@ -798,6 +887,7 @@ function updateRopeVisual(dt) {
 
 /* ---------------- 主循环 ---------------- */
 let last = performance.now(), acc = 0;
+let fpsAcc = 0, frames = 0;
 const FIXED = 1 / 120;
 
 function loop(now) {
@@ -821,9 +911,28 @@ function loop(now) {
 
     timerEl.textContent = state.time.toFixed(1);
     timerEl.classList.toggle('warn', state.time < 10);
+
+    const rd = Math.hypot(p1.x - p2.x, p1.y - p2.y);
+    const tension = Math.max(0, Math.min(1, (rd - TUNE.ropeRest) / (TUNE.ropeMax - TUNE.ropeRest)));
+    tensionFill.style.width = (tension * 100).toFixed(0) + '%';
+    tensionEl.classList.toggle('hot', tension > 0.12);
+    if (!flingTutorial && p1.x > 2700 && p2.x > 2700) {
+      flingTutorial = true;
+      toast('绳子绷紧时起跳，会被甩过去', 3.2);
+    }
   } else if (ready) {
     updateVisuals(dt);
     timerEl.textContent = state.time.toFixed(1);
+  }
+
+  if (toastT > 0) {
+    toastT -= dt;
+    if (toastT <= 0) toastEl.style.opacity = 0;
+  }
+  fpsAcc += dt; frames++;
+  if (fpsAcc >= 0.5) {
+    fpsEl.textContent = Math.round(frames / fpsAcc);
+    fpsAcc = 0; frames = 0;
   }
 
   const sx = (Math.random() - 0.5) * state.shake;
@@ -839,6 +948,32 @@ function loop(now) {
 /* ---------------- 启动 ---------------- */
 document.getElementById('go').addEventListener('click', startGame);
 document.getElementById('again').addEventListener('click', restart);
+
+/* G1 调试面板 */
+document.getElementById('sGrav').addEventListener('input', function (e) { TUNE.gravity = +e.target.value; });
+document.getElementById('sJump').addEventListener('input', function (e) { TUNE.jump = +e.target.value; });
+document.getElementById('sK').addEventListener('input', function (e) { TUNE.ropeK = +e.target.value; });
+document.getElementById('sExp').addEventListener('input', function (e) { renderer.toneMappingExposure = +e.target.value / 100; });
+document.getElementById('sBloom').addEventListener('input', function (e) { bloom.strength = +e.target.value / 100; });
+document.getElementById('muteBtn').addEventListener('click', toggleMute);
+document.getElementById('copyTune').addEventListener('click', function () {
+  const txt = JSON.stringify(TUNE, null, 2);
+  if (navigator.clipboard) navigator.clipboard.writeText(txt);
+  toast('参数已复制', 1.2);
+});
+document.getElementById('dlLog').addEventListener('click', function () {
+  const payload = { summary: TELE.summary, events: TELE.events };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'limeland-g1-log.json';
+  a.click();
+  setTimeout(function () { URL.revokeObjectURL(a.href); }, 2000);
+});
+window.addEventListener('keydown', function (e) {
+  if (e.code === 'Backquote') debugEl.classList.toggle('on');
+  if (e.code === 'KeyM') toggleMute();
+});
 document.getElementById('start').addEventListener('click', function (e) {
   if (e.target.id === 'start') startGame();
 });
