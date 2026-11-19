@@ -83,11 +83,11 @@ camera.lookAt(0, 320, 0);
 scene.add(camera);
 
 /* 真实光照：让平台、道具、角色处在同一盏灯下 */
-scene.add(new THREE.AmbientLight(0x6a4a9a, 1.05));
-const keyLight = new THREE.DirectionalLight(0xffe6b8, 1.6);
+scene.add(new THREE.AmbientLight(0x6a4a9a, 0.7));
+const keyLight = new THREE.DirectionalLight(0xffe6b8, 2.0);
 keyLight.position.set(-520, 900, 700);
 scene.add(keyLight);
-const rimLight = new THREE.DirectionalLight(0x57E0FF, 0.7);
+const rimLight = new THREE.DirectionalLight(0x57E0FF, 0.9);
 rimLight.position.set(820, -220, 520);
 scene.add(rimLight);
 
@@ -286,15 +286,56 @@ function lipTexture(hex) {
   return t;
 }
 
+function platformFrontTexture(hex) {
+  const c = document.createElement('canvas');
+  c.width = 512; c.height = 64;
+  const g = c.getContext('2d');
+  const grd = g.createLinearGradient(0, 0, 0, 64);
+  grd.addColorStop(0, '#2a1650');
+  grd.addColorStop(0.45, '#1c0f38');
+  grd.addColorStop(1, '#100722');
+  g.fillStyle = grd;
+  g.fillRect(0, 0, 512, 64);
+  g.fillStyle = 'rgba(0,0,0,.55)';
+  g.fillRect(0, 0, 512, 9);
+  g.strokeStyle = 'rgba(255,255,255,.055)';
+  g.lineWidth = 1;
+  for (let x = 64; x < 512; x += 96) {
+    g.beginPath(); g.moveTo(x, 9); g.lineTo(x, 60); g.stroke();
+  }
+  g.fillStyle = 'rgba(255,255,255,.1)';
+  for (let x = 32; x < 512; x += 96) {
+    g.beginPath(); g.arc(x, 15, 2, 0, 7); g.fill();
+  }
+  const col = '#' + hex.toString(16).padStart(6, '0');
+  g.fillStyle = col;
+  for (let i = 0; i < 7; i++) {
+    const x = 24 + Math.random() * 460;
+    const h = 8 + Math.random() * 24;
+    g.globalAlpha = 0.3;
+    g.fillRect(x, 34, 3, h);
+  }
+  g.globalAlpha = 0.22;
+  g.fillRect(0, 0, 512, 3);
+  g.globalAlpha = 1;
+  g.fillStyle = 'rgba(0,0,0,.6)';
+  g.fillRect(0, 60, 512, 4);
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+
 function buildPlatforms() {
   const colors = [0xC6F24E, 0x57E0FF, 0xFF8FA8];
-  const bodyTex = platformBodyTexture();
   const glowTex = new THREE.CanvasTexture(radialCanvas());
   PLATFORMS.forEach(function (p, i) {
     const w = p.x1 - p.x0, cx = (p.x0 + p.x1) / 2;
+    const edgeColor = colors[i % 3];
+    const sideMat = new THREE.MeshLambertMaterial({ color: 0x140a2b });
+    const frontMat = new THREE.MeshLambertMaterial({ map: platformFrontTexture(edgeColor) });
     const body = new THREE.Mesh(
       new THREE.BoxGeometry(w, 28, 56),
-      new THREE.MeshLambertMaterial({ map: bodyTex })
+      [sideMat, sideMat, sideMat, sideMat, frontMat, sideMat]
     );
     body.position.set(cx, p.y - 14, 0);
     scene.add(body);
@@ -309,7 +350,6 @@ function buildPlatforms() {
     wallShade.position.set(cx, p.y - 30, -40);
     scene.add(wallShade);
 
-    const edgeColor = colors[i % 3];
     const lip = new THREE.Mesh(
       new THREE.PlaneGeometry(w, 15),
       new THREE.MeshBasicMaterial({
@@ -319,6 +359,28 @@ function buildPlatforms() {
     );
     lip.position.set(cx, p.y + 7, 10);
     scene.add(lip);
+
+    const lipGlow = new THREE.Mesh(
+      new THREE.PlaneGeometry(w, 30),
+      new THREE.MeshBasicMaterial({
+        map: new THREE.CanvasTexture(radialCanvas()), color: edgeColor,
+        transparent: true, opacity: 0.18, blending: THREE.AdditiveBlending,
+        depthWrite: false, toneMapped: false
+      })
+    );
+    lipGlow.position.set(cx, p.y + 6, 9);
+    scene.add(lipGlow);
+
+    const bounce = new THREE.Mesh(
+      new THREE.PlaneGeometry(w * 0.92, 56),
+      new THREE.MeshBasicMaterial({
+        map: new THREE.CanvasTexture(radialCanvas()), color: edgeColor,
+        transparent: true, opacity: 0.07, blending: THREE.AdditiveBlending,
+        depthWrite: false, toneMapped: false
+      })
+    );
+    bounce.position.set(cx, p.y - 8, -38);
+    scene.add(bounce);
 
     [-0.32, 0.32].forEach(function (k) {
       const br = new THREE.Mesh(
@@ -382,6 +444,9 @@ function characterMaterial(tex, tint) {
       rim: { value: new THREE.Color(tint) }
     },
     vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+    transparent: true,
+    depthWrite: false,
+    depthTest: true,
     fragmentShader: [
       'uniform sampler2D map;',
       'uniform vec3 rim;',
@@ -423,6 +488,7 @@ function buildCharacter(canvas, tint, x, y) {
     depthWrite: false, toneMapped: false
   }));
   glow.scale.set(280, 280, 1);
+  glow.renderOrder = 5;
   glow.position.set(x, y + 85, 12);
   scene.add(glow);
 
@@ -512,6 +578,7 @@ function buildRope() {
   ropeLayers.forEach(function (L) {
     L.mesh = new THREE.Mesh(L.layer.geo, L.mat);
     L.mesh.frustumCulled = false;
+    L.mesh.renderOrder = 20;
     scene.add(L.mesh);
   });
   ropeMesh = ropeLayers[0].mesh;
@@ -525,6 +592,7 @@ function buildRope() {
       depthWrite: false, toneMapped: false
     }));
     s.scale.set(11, 11, 1);
+    s.renderOrder = 21;
     scene.add(s);
     ropeDrops.push(s);
   }
@@ -616,6 +684,7 @@ function buildPizzas() {
     coin.rotation.x = Math.PI / 2;
     group.add(coin);
     group.position.set(p.x, p.y, 40);
+    group.renderOrder = 30;
     scene.add(group);
 
     const shade = new THREE.Sprite(new THREE.SpriteMaterial({
@@ -624,6 +693,7 @@ function buildPizzas() {
     }));
     shade.scale.set(54, 54, 1);
     shade.position.set(p.x + 6, p.y - 8, 38);
+    shade.renderOrder = 28;
     scene.add(shade);
 
     const glow = new THREE.Sprite(new THREE.SpriteMaterial({
@@ -632,6 +702,7 @@ function buildPizzas() {
     }));
     glow.scale.set(120, 120, 1);
     glow.position.set(p.x, p.y, 39);
+    glow.renderOrder = 29;
     scene.add(glow);
 
     pizzas.push({ x: p.x, baseY: p.y, y: p.y, taken: false, sprite: group, glow: glow, shade: shade, phase: i * 2.1 });
@@ -750,6 +821,24 @@ function updateGhosts(dt) {
     const k = g.life / g.max;
     g.sprite.material.opacity = 0.28 * k;
   }
+}
+
+function buildHaze() {
+  const tex = new THREE.CanvasTexture(radialCanvas());
+  [
+    [-900, 320, -700, 900, 0x7B3FA0],
+    [1200, 420, -900, 1100, 0x2A7A8A],
+    [2500, 240, -620, 820, 0xFF8FA8],
+    [3600, 520, -980, 1200, 0x57E0FF]
+  ].forEach(function (c) {
+    const s = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: tex, color: c[4], transparent: true, opacity: 0.05,
+      blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false
+    }));
+    s.position.set(c[0], c[1], c[2]);
+    s.scale.set(c[3], c[3] * 0.75, 1);
+    scene.add(s);
+  });
 }
 
 function buildMotes() {
@@ -1283,6 +1372,7 @@ function updateVisuals(dt) {
     p.squash *= Math.pow(0.0005, dt * 2.2);
     const zOrder = i === 0 ? (p1.y >= p2.y ? 21 : 20) : (p2.y >= p1.y ? 21 : 20);
     c.mesh.position.set(p.x, p.y + 85, zOrder);
+    c.mesh.renderOrder = i === 0 ? (p1.y >= p2.y ? 11 : 10) : (p2.y > p1.y ? 11 : 10);
     c.mesh.rotation.z = Math.max(-0.14, Math.min(0.14, p.vx / 2800));
     c.mesh.scale.set(1 + p.squash, 1 - p.squash, 1);
     c.glow.position.set(p.x, p.y + 85, 12);
@@ -1563,6 +1653,7 @@ document.getElementById('start').addEventListener('click', function (e) {
     buildBackground(bgImg);
     buildPlatforms();
     buildLamps();
+    buildHaze();
     buildPizzas();
     buildHazard();
     chars.green = buildCharacter(cutoutCanvas(gImg), 0xABE14D, p1.x, p1.y);
