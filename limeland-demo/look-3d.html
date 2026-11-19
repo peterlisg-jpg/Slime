@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>拉丝 · 3D 视觉样张</title>
+<style>
+  @font-face{
+    font-family:"ZCOOL";
+    src:url("assets/fonts/zcool-ui.ttf") format("truetype");
+    font-weight:400;font-display:swap;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:radial-gradient(900px 600px at 50% 30%,#140a26 0%,#04010a 70%);
+    display:flex;align-items:center;justify-content:center;overflow:hidden;
+    font-family:"PingFang SC","Noto Sans SC","Microsoft YaHei",system-ui,sans-serif;color:#f6f1ff}
+  #wrap{position:relative;width:min(96vw,calc(94vh * 16 / 9));aspect-ratio:16/9;border-radius:20px;
+    overflow:hidden;background:#07030f;
+    box-shadow:0 30px 100px rgba(0,0,0,.85),0 0 0 1px rgba(198,242,78,.12),0 0 100px rgba(120,60,220,.18)}
+  canvas{display:block;width:100%!important;height:100%!important}
+  .top{position:absolute;left:4.5%;top:6%;pointer-events:none}
+  .kicker{font:700 9px/1 ui-monospace,monospace;letter-spacing:.34em;color:#C6F24E;opacity:.85}
+  .title{font-family:"ZCOOL","PingFang SC",sans-serif;font-size:clamp(26px,3.2vw,40px);
+    letter-spacing:.08em;margin-top:8px;color:#fff;text-shadow:0 2px 20px rgba(0,0,0,.6)}
+  .rule{width:54px;height:2px;margin-top:10px;background:#C6F24E;border-radius:1px;opacity:.8}
+  .meta{position:absolute;left:4.5%;bottom:6%;font:600 9.5px/1.8 ui-monospace,monospace;
+    letter-spacing:.16em;color:rgba(255,255,255,.38);pointer-events:none}
+  .hint{position:absolute;right:4.5%;bottom:6%;font:600 9.5px/1 ui-monospace,monospace;
+    letter-spacing:.2em;color:rgba(255,255,255,.42);pointer-events:none}
+  .badge{position:absolute;right:4.5%;top:6.5%;padding:6px 10px;border-radius:6px;
+    background:rgba(198,242,78,.1);border:1px solid rgba(198,242,78,.28);
+    font:700 9px/1 ui-monospace,monospace;letter-spacing:.18em;color:#DFF5A8;pointer-events:none}
+  #err{display:none;position:absolute;inset:0;padding:40px;background:rgba(8,2,16,.92);
+    color:#FF8FA8;font:13px/1.8 ui-monospace,monospace}
+</style>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="c" width="1280" height="720"></canvas>
+  <div class="top">
+    <div class="kicker">LIMELAND · LOOK TEST 01</div>
+    <div class="title">3D 视觉样张</div>
+    <div class="rule"></div>
+  </div>
+  <div class="badge">PBR · SOFT SHADOW · BLOOM</div>
+  <div class="meta">真 3D 史莱姆 / 实体展台 / 软阴影 / 景深氛围<br>目标是判断“这一帧够不够贵”，不是玩法</div>
+  <div class="hint">移动鼠标 · 轻微视差</div>
+  <div id="err">这个浏览器没有可用的 WebGL2。请用 Chrome / Edge 打开，并开启硬件加速。</div>
+</div>
+<script type="module" src="look-3d.js"></script>
+</body>
+</html>
