@@ -27,14 +27,14 @@ renderer.setSize(W, H);
 renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 0.72;
+renderer.toneMappingExposure = 0.92;
 stageEl.appendChild(renderer.domElement);
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x05010c);
 scene.fog = new THREE.FogExp2(0x05010c, 0.00026);
 
-const camera = new THREE.PerspectiveCamera(30, W / H, 1, 8000);
+const camera = new THREE.PerspectiveCamera(26, W / H, 1, 8000);
 camera.position.set(0, 320, 1500);
 camera.lookAt(0, 320, 0);
 scene.add(camera);
@@ -42,7 +42,7 @@ scene.add(camera);
 const composer = new EffectComposer(renderer);
 composer.setSize(W, H);
 composer.addPass(new RenderPass(scene, camera));
-const bloom = new UnrealBloomPass(new THREE.Vector2(W, H), 0.38, 0.45, 0.82);
+const bloom = new UnrealBloomPass(new THREE.Vector2(W, H), 0.55, 0.5, 0.72);
 composer.addPass(bloom);
 composer.addPass(new OutputPass());
 
@@ -160,6 +160,7 @@ const p2 = { x: 20, y: 0, vx: 0, vy: 0, grounded: false, squash: 0, jumpQueued: 
 const chars = {};
 let ropeMesh = null, ropePos = null;
 const ROPE_N = 22;
+const HAND = 150;
 let ropePts = [], ropeWobble = 0, ropeTaut = false;
 let ropeRest = 330;
 let ready = false;
@@ -172,7 +173,7 @@ function buildBackground(bgImage) {
   const tex = new THREE.CanvasTexture(canvas);
   tex.colorSpace = THREE.SRGBColorSpace;
   const geo = new THREE.PlaneGeometry(2800, 1575);
-  const mat = new THREE.MeshBasicMaterial({ map: tex, fog: false, depthWrite: false, color: 0x8078a0 });
+  const mat = new THREE.MeshBasicMaterial({ map: tex, fog: false, depthWrite: false, color: 0xb9b0d6 });
   const mesh = new THREE.Mesh(geo, mat);
   mesh.position.set(0, 0, -2700);
   mesh.renderOrder = -10;
@@ -186,23 +187,30 @@ function buildPlatforms() {
     const w = p.x1 - p.x0, cx = (p.x0 + p.x1) / 2;
     const body = new THREE.Mesh(
       new THREE.BoxGeometry(w, 28, 56),
-      new THREE.MeshBasicMaterial({ color: 0x130a27 })
+      new THREE.MeshBasicMaterial({ color: 0x2a1550 })
     );
     body.position.set(cx, p.y - 14, 0);
     scene.add(body);
 
     const edgeColor = colors[i % 3];
     const edge = new THREE.Mesh(
-      new THREE.BoxGeometry(w, 5, 60),
+      new THREE.BoxGeometry(w, 6, 60),
       new THREE.MeshBasicMaterial({ color: edgeColor, toneMapped: false })
     );
-    edge.position.set(cx, p.y + 2.5, 0);
+    edge.position.set(cx, p.y + 3, 0);
     scene.add(edge);
+
+    const spec = new THREE.Mesh(
+      new THREE.BoxGeometry(w, 2, 62),
+      new THREE.MeshBasicMaterial({ color: 0xdfeaff, transparent: true, opacity: 0.35, toneMapped: false })
+    );
+    spec.position.set(cx, p.y + 6.5, 0);
+    scene.add(spec);
 
     const glow = new THREE.Mesh(
       new THREE.PlaneGeometry(w * 1.25, 150),
       new THREE.MeshBasicMaterial({
-        map: glowTex, color: edgeColor, transparent: true, opacity: 0.08,
+        map: glowTex, color: edgeColor, transparent: true, opacity: 0.12,
         blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false
       })
     );
@@ -249,21 +257,21 @@ function buildCharacter(canvas, tint, x, y) {
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.anisotropy = 4;
   const aspect = canvas.width / canvas.height;
-  const h = 185, w = h * aspect;
+  const h = 210, w = h * aspect;
   const mesh = new THREE.Mesh(
     new THREE.PlaneGeometry(w, h),
     new THREE.MeshBasicMaterial({ map: tex, transparent: true, alphaTest: 0.02, side: THREE.DoubleSide })
   );
-  mesh.position.set(x, y + 75, 20);
+  mesh.position.set(x, y + 105, 20);
   scene.add(mesh);
 
   const glow = new THREE.Sprite(new THREE.SpriteMaterial({
     map: new THREE.CanvasTexture(radialCanvas()), color: tint,
-    transparent: true, opacity: 0.12, blending: THREE.AdditiveBlending,
+    transparent: true, opacity: 0.22, blending: THREE.AdditiveBlending,
     depthWrite: false, toneMapped: false
   }));
-  glow.scale.set(240, 240, 1);
-  glow.position.set(x, y + 80, 12);
+  glow.scale.set(280, 280, 1);
+  glow.position.set(x, y + 105, 12);
   scene.add(glow);
 
   const shadow = new THREE.Mesh(
@@ -302,8 +310,8 @@ function buildRope() {
 }
 
 function initRope() {
-  const a = { x: p1.x, y: p1.y + 115 };
-  const b = { x: p2.x, y: p2.y + 115 };
+  const a = { x: p1.x, y: p1.y + HAND };
+  const b = { x: p2.x, y: p2.y + HAND };
   ropePts = [];
   for (let i = 0; i < ROPE_N; i++) {
     const u = i / (ROPE_N - 1);
@@ -313,6 +321,41 @@ function initRope() {
   }
   ropeWobble = 0;
   ropeTaut = false;
+}
+
+function buildLamps() {
+  const tex = new THREE.CanvasTexture(radialCanvas());
+  [-260, 820, 1900, 3000].forEach(function (x) {
+    const y = 540;
+    const cord = new THREE.Mesh(
+      new THREE.BoxGeometry(3, 190, 3),
+      new THREE.MeshBasicMaterial({ color: 0x2a1a4a })
+    );
+    cord.position.set(x, y + 130, -200);
+    scene.add(cord);
+
+    const shade = new THREE.Mesh(
+      new THREE.CylinderGeometry(14, 46, 34, 18, 1, true),
+      new THREE.MeshBasicMaterial({ color: 0x3a1f6e, side: THREE.DoubleSide })
+    );
+    shade.position.set(x, y + 20, -200);
+    scene.add(shade);
+
+    const bulb = new THREE.Mesh(
+      new THREE.SphereGeometry(14, 12, 12),
+      new THREE.MeshBasicMaterial({ color: 0xFFF0C0, toneMapped: false })
+    );
+    bulb.position.set(x, y, -200);
+    scene.add(bulb);
+
+    const glow = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: tex, color: 0xFFD27A, transparent: true, opacity: 0.35,
+      blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false
+    }));
+    glow.position.set(x, y, -200);
+    glow.scale.set(300, 300, 1);
+    scene.add(glow);
+  });
 }
 
 function buildMotes() {
@@ -439,12 +482,12 @@ function step(dt) {
   }
   ropeStep(dt);
   state.camX += (Math.max(-260, Math.min(3320, (p1.x + p2.x) / 2 + 60)) - state.camX) * Math.min(1, dt * 4);
-  state.camY += (Math.max(220, Math.min(560, (p1.y + p2.y) / 2 + 140)) - state.camY) * Math.min(1, dt * 3);
+  state.camY += (Math.max(150, Math.min(560, (p1.y + p2.y) / 2 + 120)) - state.camY) * Math.min(1, dt * 3);
 }
 
 function ropeStep(dt) {
-  const a = { x: p1.x, y: p1.y + 115 };
-  const b = { x: p2.x, y: p2.y + 115 };
+  const a = { x: p1.x, y: p1.y + HAND };
+  const b = { x: p2.x, y: p2.y + HAND };
   let dx = b.x - a.x, dy = b.y - a.y;
   let dist = Math.hypot(dx, dy) || 0.001;
   const pulling = !!keys['KeyF'] || !!keys['KeyJ'];
@@ -481,10 +524,10 @@ function updateVisuals(dt) {
     const c = i === 0 ? chars.green : chars.pink;
     if (!c) return;
     p.squash *= Math.pow(0.0005, dt * 2.2);
-    c.mesh.position.set(p.x, p.y + 75, 20);
+    c.mesh.position.set(p.x, p.y + 105, 20);
     c.mesh.rotation.z = Math.max(-0.14, Math.min(0.14, p.vx / 2800));
     c.mesh.scale.set(1 + p.squash, 1 - p.squash, 1);
-    c.glow.position.set(p.x, p.y + 80, 12);
+    c.glow.position.set(p.x, p.y + 105, 12);
     c.glow.material.opacity = 0.28 + Math.sin(perf * 3 + i * 2) * 0.05;
 
     let gy = null;
@@ -510,8 +553,8 @@ function updateVisuals(dt) {
 /* ---------------- 绳子视觉（Verlet 链） ---------------- */
 function updateRopeVisual(dt) {
   if (!ropeMesh || ropePts.length !== ROPE_N) return;
-  const a = { x: p1.x, y: p1.y + 115 };
-  const b = { x: p2.x, y: p2.y + 115 };
+  const a = { x: p1.x, y: p1.y + HAND };
+  const b = { x: p2.x, y: p2.y + HAND };
   const dx = b.x - a.x, dy = b.y - a.y;
   const dist = Math.hypot(dx, dy) || 1;
   const SEG = 340 / (ROPE_N - 1);
@@ -552,7 +595,7 @@ function updateRopeVisual(dt) {
 
   const pulling = !!keys['KeyF'] || !!keys['KeyJ'];
   const stretch = Math.max(0, dist - 340);
-  const baseW = (pulling ? 12.5 : 9.5) * (1 - Math.min(0.35, stretch / 900));
+  const baseW = (pulling ? 14.5 : 11) * (1 - Math.min(0.35, stretch / 900));
 
   for (let i = 0; i < ROPE_N; i++) {
     const p0 = ropePts[Math.max(0, i - 1)];
@@ -638,6 +681,7 @@ document.getElementById('start').addEventListener('click', function (e) {
 
     buildBackground(bgImg);
     buildPlatforms();
+    buildLamps();
     chars.green = buildCharacter(cutoutCanvas(gImg), 0xABE14D, p1.x, p1.y);
     chars.pink = buildCharacter(cutoutCanvas(pImg), 0xFF9AD6, p2.x, p2.y);
     buildRope();
