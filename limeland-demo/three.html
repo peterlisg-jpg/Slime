@@ -43,6 +43,8 @@
   .hearts{display:flex;gap:5px}
   .hearts svg{width:19px;height:19px;color:var(--pink);filter:drop-shadow(0 0 8px rgba(255,143,168,.45));transition:.2s}
   .hearts svg.off{color:rgba(255,143,168,.2);filter:none;transform:scale(.86)}
+  .score{font:700 8.5px/1 var(--sans);letter-spacing:.2em;color:var(--muted);margin-top:2px}
+  .score b{display:block;margin-top:4px;font-family:var(--display);font-size:19px;letter-spacing:.08em;color:var(--text)}
 
   .progress{flex:1;max-width:330px;margin:5px 8px 0}
   .progress .lab{display:flex;justify-content:space-between;font:700 8.5px/1 var(--sans);
@@ -193,12 +195,13 @@
         <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 21c-4.6-3.4-8-6.2-8-10a5 5 0 0 1 9-3 5 5 0 0 1 9 3c0 3.8-3.4 6.6-8 10z"/></svg>
         <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 21c-4.6-3.4-8-6.2-8-10a5 5 0 0 1 9-3 5 5 0 0 1 9 3c0 3.8-3.4 6.6-8 10z"/></svg>
       </div>
+      <div class="score">SCORE<b id="score">0</b></div>
     </div>
 
     <div class="progress">
-      <div class="lab"><span>距离终点</span><span id="progPct">0%</span></div>
+      <div class="lab"><span>本波清场</span><span id="progPct">0%</span></div>
       <div class="bar"><i id="progFill"></i></div>
-      <div class="foot"><span>前厅</span><span>卷帘门</span></div>
+      <div class="foot"><span id="waveLabel">第 1 波 / 3</span><span id="enemyLabel">剩余 3</span></div>
     </div>
 
     <div class="hud-right">
@@ -232,6 +235,7 @@
       <div class="grp"><kbd>A</kbd><kbd>D</kbd>移动</div>
       <div class="grp"><kbd>W</kbd>跳</div>
       <div class="grp"><kbd>F</kbd>拉绳</div>
+      <div class="grp"><kbd>S</kbd>扔</div>
     </div>
   </div>
 
@@ -254,7 +258,7 @@
   <div class="overlay" id="start">
     <div class="logo">拉丝</div>
     <div class="logo-sub">L I M E L A N D</div>
-    <div class="tagline">两个史莱姆，一根绳，一整家店<em>第 1 关 · 夜光画室</em></div>
+    <div class="tagline">两个史莱姆，一根绳，清空一整家店<em>第 1 关 · 夜光画室</em></div>
     <div class="cta">
       <button class="btn" id="go">按空格开始</button>
       <small>2P CO-OP · 60 SEC</small>
@@ -263,14 +267,15 @@
       <div><kbd>A</kbd><kbd>D</kbd>移动</div>
       <div><kbd>W</kbd>跳</div>
       <div><kbd>F</kbd>拉绳</div>
-      <div style="opacity:.5">（P2：方向键 + J）</div>
+      <div><kbd>S</kbd>扔泥球</div>
+      <div style="opacity:.5">（P2：方向键 + J，↓ 扔）</div>
     </div>
   </div>
 
   <div class="overlay hidden" id="levelCard">
     <div class="kick">LEVEL 01</div>
     <div class="lc-title">夜光画室</div>
-    <div class="lc-sub">偷到披萨，两个人一起到终点</div>
+    <div class="lc-sub">把货架上的东西清干净</div>
   </div>
 
   <div class="overlay hidden" id="countdown">

@@ -24,6 +24,9 @@ const ringFg = document.getElementById('ringFg');
 const segsEl = document.getElementById('segs');
 const tensionHint = document.getElementById('tensionHint');
 const pizzaIcons = document.querySelectorAll('#pizzas .pz');
+const scoreEl = document.getElementById('score');
+const waveLabelEl = document.getElementById('waveLabel');
+const enemyLabelEl = document.getElementById('enemyLabel');
 const debugEl = document.getElementById('debug');
 const fpsEl = document.getElementById('fps');
 const levelCardEl = document.getElementById('levelCard');
@@ -193,24 +196,23 @@ function shadowCanvas() {
 
 /* ---------------- 关卡 ---------------- */
 const PLATFORMS = [
-  { x0: -800, x1: 200, y: 0 },
-  { x0: 480, x1: 880, y: 60 },
-  { x0: 1160, x1: 1560, y: 140 },
-  { x0: 1840, x1: 2240, y: 60 },
-  { x0: 2520, x1: 2920, y: 180 },
-  { x0: 3360, x1: 4200, y: 260 }
+  { x0: 0, x1: 1280, y: 0 },
+  { x0: 120, x1: 520, y: 180 },
+  { x0: 760, x1: 1160, y: 180 },
+  { x0: 430, x1: 850, y: 350 }
 ];
 const EXIT_X = 3940;
 
 const state = {
   started: false, over: false, win: false,
-  time: 60, camX: -200, camY: 320, falls: 0, pizza: 0, shake: 0, lives: 3, bumpCd: 0
+  time: 60, camX: 640, camY: 360, falls: 0, pizza: 0, shake: 0, lives: 3, bumpCd: 0,
+  score: 0, kills: 0, combo: 0, comboT: 0, bestCombo: 0, wave: 1, waveTotal: 0, waveT: 0
 };
-const checkpoint = { x: -180, y: 0 };
-const p1 = { x: -380, y: 0, vx: 0, vy: 0, grounded: false, squash: 0, jumpQueued: false, hit: 0, coyote: 0, buffer: 0, invuln: 0 };
-const p2 = { x: 20, y: 0, vx: 0, vy: 0, grounded: false, squash: 0, jumpQueued: false, hit: 0, coyote: 0, buffer: 0, invuln: 0 };
+const checkpoint = { x: 340, y: 0 };
+const p1 = { x: 300, y: 0, vx: 0, vy: 0, grounded: false, squash: 0, jumpQueued: false, hit: 0, coyote: 0, buffer: 0, invuln: 0, face: 1, throwCd: 0 };
+const p2 = { x: 620, y: 0, vx: 0, vy: 0, grounded: false, squash: 0, jumpQueued: false, hit: 0, coyote: 0, buffer: 0, invuln: 0, face: -1, throwCd: 0 };
 const chars = {};
-const PIZZA_POS = [{ x: 680, y: 210 }, { x: 1450, y: 300 }, { x: 2680, y: 330 }];
+const PIZZA_POS = [{ x: 300, y: 300 }, { x: 980, y: 300 }, { x: 640, y: 470 }];
 const pizzas = [];
 const fx = [];
 const hazard = { cx: 1360, cy: 270, len: 320, ang: 0, spd: 1.15, mesh: null, glow: null };
@@ -1024,7 +1026,9 @@ window.addEventListener('keydown', function (e) {
     if (screen === 'play' || screen === 'pause' || screen === 'result') beginSequence();
   }
   if (e.code === 'KeyW' && screen === 'play') p1.buffer = 0.13;
+  if (e.code === 'KeyS' && screen === 'play' && ready) throwBall(p1);
   if (e.code === 'ArrowUp' && screen === 'play') p2.buffer = 0.13;
+  if (e.code === 'ArrowDown' && screen === 'play' && ready) throwBall(p2);
   if ((e.code === 'KeyF' || e.code === 'KeyJ') && screen === 'play') beep(180, 0.12, 'triangle', 0.03);
 });
 window.addEventListener('keyup', function (e) {
@@ -1036,13 +1040,15 @@ window.addEventListener('blur', function () { for (const k in keys) keys[k] = fa
 
 /* ---------------- 游戏逻辑 ---------------- */
 function resetGame() {
-  p1.x = -380; p1.y = 0; p1.vx = 0; p1.vy = 0; p1.grounded = false; p1.squash = 0; p1.hit = 0;
-  p2.x = 20; p2.y = 0; p2.vx = 0; p2.vy = 0; p2.grounded = false; p2.squash = 0; p2.hit = 0;
-  checkpoint.x = -180; checkpoint.y = 0;
+  p1.x = 300; p1.y = 0; p1.vx = 0; p1.vy = 0; p1.grounded = false; p1.squash = 0; p1.hit = 0; p1.face = 1;
+  p2.x = 620; p2.y = 0; p2.vx = 0; p2.vy = 0; p2.grounded = false; p2.squash = 0; p2.hit = 0; p2.face = -1;
+  checkpoint.x = 340; checkpoint.y = 0;
   ropeRest = 330;
   initRope();
   state.time = 60; state.over = false; state.win = false; state.falls = 0;
   state.pizza = 0; state.shake = 0; state.lives = 3;
+  state.score = 0; state.kills = 0; state.combo = 0; state.comboT = 0; state.bestCombo = 0;
+  state.wave = 1; state.waveTotal = 0; state.waveT = 0;
   flingTutorial = false;
   toastT = 0;
   toastEl.style.opacity = 0;
@@ -1059,7 +1065,9 @@ function resetGame() {
   progPct.textContent = '0%';
   for (let i = 0; i < segsEl.children.length; i++) segsEl.children[i].className = '';
   tensionHint.textContent = '保持松绳';
-  state.camX = -200; state.camY = 320;
+  state.camX = 640; state.camY = 360;
+  clearEnemies(); clearBalls(); spawnWave(1);
+  if (scoreEl) scoreEl.textContent = '0';
   endEl.classList.add('hidden');
 }
 function showEl(el) { el.classList.remove('hidden'); }
@@ -1087,7 +1095,7 @@ function startPlay() {
   tut.pull = false;
   flingTutorial = false;
   log('play');
-  toast('A / D 移动 · W 跳', 2.2);
+  toast('S / ↓ 扔泥球，把敌人裹成球再撞出去', 2.8);
 }
 function pauseGame() {
   if (screen !== 'play') return;
@@ -1116,27 +1124,27 @@ function endGame(win, reason) {
   state.over = true;
   state.win = win;
   document.getElementById('endTitle').textContent =
-    win ? '逃出来了' : reason === 'lives' ? '心用完了' : '时间到';
+    win ? '清场完成' : reason === 'lives' ? '心用完了' : '时间到';
   let stars = 0;
   if (win) {
     stars = 1;
-    if (state.pizza >= 2 || state.time > 20) stars = 2;
-    if (state.pizza === 3 && state.time > 15) stars = 3;
+    if (state.lives >= 2) stars = 2;
+    if (state.lives >= 3 && state.time > 15) stars = 3;
   }
   const elapsed = +(60 - state.time).toFixed(1);
   let rank = 'C';
-  if (win) rank = stars === 3 ? (elapsed < 35 ? 'S' : 'A') : stars === 2 ? 'A' : 'B';
+  if (win) rank = stars === 3 ? (state.score >= 3000 ? 'S' : 'A') : stars === 2 ? 'A' : 'B';
   rankEl.textContent = rank;
   rankEl.style.color = rank === 'S' ? '#FFD45C' : rank === 'A' ? '#C6F24E' : rank === 'B' ? '#57E0FF' : '#9a8fb8';
 
-  const best = parseFloat(localStorage.getItem(BEST_KEY) || '0');
+  const best = parseFloat(localStorage.getItem('limeland.arena.best') || '0');
   let newBest = false;
-  if (win && (!best || elapsed < best)) {
-    localStorage.setItem(BEST_KEY, String(elapsed));
+  if (win && state.score > best) {
+    try { localStorage.setItem('limeland.arena.best', String(state.score)); } catch (e) {}
     newBest = true;
   }
   bestLineEl.textContent = win
-    ? (newBest ? 'NEW BEST · ' + elapsed.toFixed(1) + 's' : '最好成绩 ' + (best || elapsed).toFixed(1) + 's')
+    ? (newBest ? 'NEW BEST · ' + state.score + ' 分' : '最好成绩 ' + (best || state.score) + ' 分')
     : '';
 
   const starEls = endStarsEl.querySelectorAll('svg');
@@ -1144,20 +1152,20 @@ function endGame(win, reason) {
 
   document.getElementById('endStat').innerHTML =
     '<div><small>用时</small><b>' + elapsed.toFixed(1) + 's</b></div>' +
-    '<div><small>披萨</small><b>' + state.pizza + ' / 3</b></div>' +
-    '<div><small>掉坑</small><b>' + state.falls + '</b></div>';
+    '<div><small>击破</small><b>' + state.kills + '</b></div>' +
+    '<div><small>最高连击</small><b>×' + state.bestCombo + '</b></div>';
   endEl.classList.remove('hidden');
   if (win) {
     beep(660, 0.2, 'triangle', 0.05);
     for (let i = 0; i < 26; i++) {
-      spawnPart(EXIT_X, 430, [0xC6F24E, 0xFF9AD6, 0xFFC94A][i % 3],
+      spawnPart(640, 420, [0xC6F24E, 0xFF9AD6, 0xFFC94A][i % 3],
         rnd(-260, 260), rnd(-320, 180), rnd(12, 26), rnd(0.6, 1.2));
     }
   }
-  log(win ? 'win' : 'lose', { time: +state.time.toFixed(1), pizza: state.pizza, falls: state.falls });
+  log(win ? 'win' : 'lose', { time: +state.time.toFixed(1), score: state.score, kills: state.kills, wave: state.wave });
   TELE.summary = {
-    win: win, elapsed: elapsed,
-    pizza: state.pizza, falls: state.falls, stars: stars, rank: rank
+    win: win, elapsed: elapsed, score: state.score, kills: state.kills,
+    waves: state.wave, bestCombo: state.bestCombo, stars: stars, rank: rank
   };
 }
 function resolvePlayers(dt) {
@@ -1228,6 +1236,302 @@ function respawn(p) {
   if (state.lives <= 0) endGame(false, 'lives');
 }
 
+
+/* ---------------- 单屏清场（Snow Bros. 原型） ---------------- */
+const ARENA = true;
+const WAVE_COUNT = 3;
+const enemies = [];
+const balls = [];
+let ballTex = null, ballGlowTex = null;
+const WAVE_PLANS = [
+  [{ t: 'jelly', x: 260, y: 180 }, { t: 'jelly', x: 1000, y: 180 }, { t: 'vac', x: 640, y: 0 }],
+  [{ t: 'vac', x: 300, y: 0 }, { t: 'vac', x: 980, y: 0 }, { t: 'box', x: 640, y: 430 }],
+  [{ t: 'jelly', x: 640, y: 350 }, { t: 'box', x: 320, y: 430 }, { t: 'vac', x: 920, y: 0 }, { t: 'jelly', x: 1060, y: 180 }]
+];
+
+function arenaAssets() {
+  if (ballTex) return;
+  const c = document.createElement('canvas');
+  c.width = c.height = 64;
+  const g = c.getContext('2d');
+  g.fillStyle = '#9CDB3A';
+  g.beginPath(); g.arc(32, 32, 26, 0, 7); g.fill();
+  g.fillStyle = '#D6FF8A';
+  g.beginPath(); g.arc(24, 22, 9, 0, 7); g.fill();
+  g.fillStyle = 'rgba(40,80,0,.35)';
+  g.beginPath(); g.arc(36, 42, 5, 0, 7); g.fill();
+  ballTex = new THREE.CanvasTexture(c);
+  ballTex.colorSpace = THREE.SRGBColorSpace;
+  ballGlowTex = new THREE.CanvasTexture(radialCanvas());
+}
+
+function enemyCanvas(type) {
+  const c = document.createElement('canvas');
+  c.width = c.height = 96;
+  const g = c.getContext('2d');
+  g.translate(48, 48);
+  if (type === 'jelly') {
+    g.fillStyle = '#FF8FA8';
+    g.beginPath(); g.ellipse(0, 6, 30, 26, 0, 0, 7); g.fill();
+    g.fillStyle = '#FFC2D2';
+    g.beginPath(); g.ellipse(-9, -4, 13, 9, -0.3, 0, 7); g.fill();
+    g.fillStyle = '#170812';
+    g.beginPath(); g.arc(-9, -1, 4, 0, 7); g.arc(9, -1, 4, 0, 7); g.fill();
+    g.strokeStyle = '#8A2B4A'; g.lineWidth = 2;
+    g.beginPath(); g.arc(0, 7, 9, 0.25, Math.PI - 0.25); g.stroke();
+  } else if (type === 'vac') {
+    g.fillStyle = '#1a1030';
+    g.beginPath(); g.arc(0, 4, 28, 0, 7); g.fill();
+    g.strokeStyle = '#57E0FF'; g.lineWidth = 4;
+    g.beginPath(); g.arc(0, 4, 23, 0, 7); g.stroke();
+    g.fillStyle = '#57E0FF';
+    g.beginPath(); g.arc(0, 4, 7, 0, 7); g.fill();
+    g.fillStyle = '#FF8FA8';
+    g.beginPath(); g.arc(0, -22, 4, 0, 7); g.fill();
+  } else {
+    g.fillStyle = '#B4762A';
+    g.fillRect(-26, -22, 52, 44);
+    g.fillStyle = '#F2B44E';
+    g.fillRect(-26, -22, 52, 11);
+    g.strokeStyle = 'rgba(0,0,0,.3)'; g.lineWidth = 2;
+    g.strokeRect(-26, -22, 52, 44);
+    g.fillStyle = '#FFE39A';
+    g.beginPath(); g.arc(0, 4, 13, 0, 7); g.fill();
+    g.fillStyle = '#D8473C';
+    g.beginPath(); g.arc(0, 4, 5, 0, 7); g.fill();
+  }
+  return c;
+}
+
+const enemyTexCache = {};
+function enemyTexture(type) {
+  if (!enemyTexCache[type]) {
+    const t = new THREE.CanvasTexture(enemyCanvas(type));
+    t.colorSpace = THREE.SRGBColorSpace;
+    enemyTexCache[type] = t;
+  }
+  return enemyTexCache[type];
+}
+
+function spawnEnemy(spec) {
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: enemyTexture(spec.t), transparent: true, depthWrite: false
+  }));
+  sp.scale.set(58, 58, 1);
+  sp.position.set(spec.x, spec.y + 30, 44);
+  sp.renderOrder = 30;
+  scene.add(sp);
+
+  const col = spec.t === 'jelly' ? 0xFF8FA8 : spec.t === 'vac' ? 0x57E0FF : 0xFFC94A;
+  const glow = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: new THREE.CanvasTexture(radialCanvas()), color: col, transparent: true,
+    opacity: 0.22, blending: THREE.AdditiveBlending, depthWrite: false
+  }));
+  glow.scale.set(92, 92, 1);
+  glow.position.copy(sp.position);
+  glow.renderOrder = 29;
+  scene.add(glow);
+
+  const sh = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: new THREE.CanvasTexture(shadowCanvas()), color: 0x000000, transparent: true,
+    opacity: 0.32, depthWrite: false
+  }));
+  sh.scale.set(46, 15, 1);
+  sh.position.set(spec.x, spec.y + 3, 42);
+  sh.renderOrder = 28;
+  scene.add(sh);
+
+  let patrol = null;
+  if (spec.t === 'vac') patrol = { x0: 40, x1: 1240 };
+  else if (spec.t !== 'box') {
+    let pl = null;
+    for (let i = 0; i < PLATFORMS.length; i++) {
+      if (Math.abs(PLATFORMS[i].y - spec.y) < 4 && spec.x >= PLATFORMS[i].x0 && spec.x <= PLATFORMS[i].x1) pl = PLATFORMS[i];
+    }
+    patrol = pl ? { x0: pl.x0 + 36, x1: pl.x1 - 36 } : { x0: 40, x1: 1240 };
+  }
+
+  enemies.push({
+    type: spec.t, x: spec.x, y: spec.y, baseY: spec.y, cx: spec.x,
+    vx: spec.t === 'vac' ? 150 : 70, dir: Math.random() < 0.5 ? -1 : 1,
+    patrol: patrol, phase: Math.random() * 6.28,
+    sprite: sp, glow: glow, shadow: sh
+  });
+}
+
+function clearEnemies() {
+  for (let i = 0; i < enemies.length; i++) {
+    const e = enemies[i];
+    scene.remove(e.sprite); scene.remove(e.glow); scene.remove(e.shadow);
+  }
+  enemies.length = 0;
+}
+function clearBalls() {
+  for (let i = 0; i < balls.length; i++) {
+    scene.remove(balls[i].sprite); scene.remove(balls[i].glow);
+  }
+  balls.length = 0;
+}
+
+function spawnWave(n) {
+  clearEnemies();
+  clearBalls();
+  const plan = WAVE_PLANS[n - 1];
+  state.waveTotal = plan.length;
+  for (let i = 0; i < plan.length; i++) spawnEnemy(plan[i]);
+  state.waveT = 0;
+  updateArenaHUD();
+}
+
+function throwBall(p) {
+  if (p.throwCd > 0 || p.hit > 0) return;
+  p.throwCd = 0.34;
+  const dir = p.face || 1;
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: ballTex, transparent: true, depthWrite: false
+  }));
+  sp.scale.set(40, 40, 1);
+  sp.position.set(p.x + dir * 38, p.y + 70, 46);
+  sp.renderOrder = 31;
+  scene.add(sp);
+  const gl = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: ballGlowTex, color: 0xC6F24E, transparent: true, opacity: 0.3,
+    blending: THREE.AdditiveBlending, depthWrite: false
+  }));
+  gl.scale.set(70, 70, 1);
+  gl.position.copy(sp.position);
+  gl.renderOrder = 30;
+  scene.add(gl);
+  balls.push({
+    x: p.x + dir * 38, y: p.y + 70, vx: dir * 640, vy: 60,
+    life: 2.0, encased: false, sprite: sp, glow: gl
+  });
+  p.squash = Math.max(p.squash, 0.12);
+  beep(520, 0.07, 'square', 0.03);
+}
+
+function removeBall(i) {
+  const b = balls[i];
+  scene.remove(b.sprite); scene.remove(b.glow);
+  balls.splice(i, 1);
+}
+
+function killEnemy(k, b) {
+  const e = enemies[k];
+  enemies.splice(k, 1);
+  scene.remove(e.sprite); scene.remove(e.glow); scene.remove(e.shadow);
+  if (b.encased) state.combo++;
+  else state.combo = 1;
+  state.comboT = 2.6;
+  state.bestCombo = Math.max(state.bestCombo, state.combo);
+  state.score += 100 * state.combo;
+  state.kills++;
+  if (scoreEl) scoreEl.textContent = state.score;
+  ring(e.x, e.y + 30, 0xFFC94A);
+  beep(700 + state.combo * 60, 0.12, 'triangle', 0.045);
+  for (let i = 0; i < 8; i++) {
+    spawnPart(e.x, e.y + 30, 0xFFC94A, rnd(-220, 220), rnd(-160, 120), rnd(8, 16), 0.5);
+  }
+  if (state.combo > 1) toast('×' + state.combo + ' 连击', 0.6);
+  updateArenaHUD();
+}
+
+function damagePlayer(p, e) {
+  if (p.invuln > 0) return;
+  state.lives--;
+  updateHearts();
+  p.invuln = 1.1;
+  p.hit = 0.4;
+  p.vx += (p.x < e.x ? -1 : 1) * 320;
+  p.vy = 420;
+  hitFlashT = 0.35;
+  state.shake = 12;
+  beep(120, 0.2, 'sawtooth', 0.05);
+  log('enemy-hit', { type: e.type });
+  if (state.lives <= 0) endGame(false, 'lives');
+}
+
+function updateArenaHUD() {
+  const total = state.waveTotal || 1;
+  const cleared = total - enemies.length;
+  const prog = Math.max(0, Math.min(1, cleared / total));
+  progFill.style.width = (prog * 100).toFixed(0) + '%';
+  progPct.textContent = Math.round(prog * 100) + '%';
+  if (waveLabelEl) waveLabelEl.textContent = '第 ' + state.wave + ' 波 / ' + WAVE_COUNT;
+  if (enemyLabelEl) enemyLabelEl.textContent = '剩余 ' + enemies.length;
+  if (scoreEl) scoreEl.textContent = state.score;
+}
+
+function updateArena(dt) {
+  const t = perf;
+  for (let i = enemies.length - 1; i >= 0; i--) {
+    const e = enemies[i];
+    if (e.type === 'box') {
+      e.x = e.cx + Math.sin(t * 0.9 + e.phase) * 170;
+      e.y = e.baseY + Math.sin(t * 2 + e.phase) * 26;
+    } else {
+      e.x += e.vx * e.dir * dt;
+      if (e.patrol) {
+        if (e.x < e.patrol.x0) { e.x = e.patrol.x0; e.dir = 1; }
+        if (e.x > e.patrol.x1) { e.x = e.patrol.x1; e.dir = -1; }
+      }
+      e.y = e.baseY;
+    }
+    const bob = e.type === 'jelly' ? Math.sin(t * 4 + e.phase) * 3 : 0;
+    e.sprite.position.set(e.x, e.y + 30 + bob, 44);
+    e.glow.position.copy(e.sprite.position);
+    e.shadow.position.set(e.x, e.y + 3, 42);
+    if (p1.invuln <= 0 && Math.hypot(p1.x - e.x, (p1.y + 85) - (e.y + 30)) < 66) damagePlayer(p1, e);
+    if (p2.invuln <= 0 && Math.hypot(p2.x - e.x, (p2.y + 85) - (e.y + 30)) < 66) damagePlayer(p2, e);
+  }
+
+  for (let i = balls.length - 1; i >= 0; i--) {
+    const b = balls[i];
+    b.life -= dt;
+    b.vy -= 1100 * dt;
+    b.x += b.vx * dt;
+    b.y += b.vy * dt;
+    if (b.x < 20) { b.x = 20; b.vx = Math.abs(b.vx); }
+    if (b.x > 1260) { b.x = 1260; b.vx = -Math.abs(b.vx); }
+    if (b.y < 22) { b.y = 22; b.vy = Math.abs(b.vy) * 0.5; if (Math.abs(b.vy) < 50) b.vy = 0; }
+    b.sprite.position.set(b.x, b.y, 46);
+    b.glow.position.set(b.x, b.y, 45);
+
+    for (let k = enemies.length - 1; k >= 0; k--) {
+      const e = enemies[k];
+      if (Math.hypot(b.x - e.x, b.y - (e.y + 30)) < 42) {
+        killEnemy(k, b);
+        if (!b.encased) {
+          b.encased = true;
+          b.vx *= 0.6;
+          b.life = 2.4;
+          b.sprite.scale.set(70, 70, 1);
+        }
+        break;
+      }
+    }
+    if (b.life <= 0) removeBall(i);
+  }
+
+  if (enemies.length === 0 && state.waveT === 0) state.waveT = 1.4;
+  if (state.waveT > 0) {
+    state.waveT -= dt;
+    if (state.waveT <= 0) {
+      if (state.wave >= WAVE_COUNT) {
+        state.waveT = -1;
+        endGame(true);
+      } else {
+        state.wave++;
+        spawnWave(state.wave);
+        toast('第 ' + state.wave + ' 波', 1.2);
+      }
+    }
+  }
+
+  state.comboT = Math.max(0, state.comboT - dt);
+  if (state.comboT <= 0) state.combo = 0;
+}
+
 function step(dt) {
   const ps = [p1, p2];
   for (let i = 0; i < 2; i++) {
@@ -1236,8 +1540,9 @@ function step(dt) {
     const canMove = p.hit <= 0;
     const left = canMove && (i === 0 ? keys['KeyA'] : keys['ArrowLeft']);
     const right = canMove && (i === 0 ? keys['KeyD'] : keys['ArrowRight']);
-    if (left) p.vx -= TUNE.moveAccel * dt;
-    if (right) p.vx += TUNE.moveAccel * dt;
+    if (left) { p.vx -= TUNE.moveAccel * dt; p.face = -1; }
+    if (right) { p.vx += TUNE.moveAccel * dt; p.face = 1; }
+    p.throwCd = Math.max(0, p.throwCd - dt);
     if (!left && !right) p.vx *= Math.pow(0.0006, dt);
     p.vx = Math.max(-TUNE.maxSpeed, Math.min(TUNE.maxSpeed, p.vx));
 
@@ -1271,6 +1576,8 @@ function step(dt) {
     p.prevX = p.x;
     p.x += p.vx * dt;
     p.y += p.vy * dt;
+    if (p.x < 24) { p.x = 24; if (p.vx < 0) p.vx = 0; }
+    if (p.x > 1256) { p.x = 1256; if (p.vx > 0) p.vx = 0; }
 
     const was = p.grounded;
     p.grounded = false;
@@ -1315,8 +1622,11 @@ function step(dt) {
   // 两个角色之间的碰撞：推开 / 踩头
   resolvePlayers(dt);
 
+  // 单屏清场
+  if (ARENA) updateArena(dt);
+
   // 旋转机关
-  if (hazard.mesh) {
+  if (!ARENA && hazard.mesh) {
     hazard.ang += dt * hazard.spd;
     const ex = Math.cos(hazard.ang) * hazard.len / 2;
     const ey = Math.sin(hazard.ang) * hazard.len / 2;
@@ -1336,9 +1646,14 @@ function step(dt) {
   state.shake *= Math.pow(0.02, dt * 2.5);
 
   ropeStep(dt);
-  const lookAhead = (p1.vx + p2.vx) * 0.11;
-  state.camX += (Math.max(-260, Math.min(3600, (p1.x + p2.x) / 2 + 60 + lookAhead)) - state.camX) * Math.min(1, dt * 4);
-  state.camY += (Math.max(200, Math.min(560, (p1.y + p2.y) / 2 + 140)) - state.camY) * Math.min(1, dt * 3);
+  if (ARENA) {
+    state.camX = 640;
+    state.camY = 360;
+  } else {
+    const lookAhead = (p1.vx + p2.vx) * 0.11;
+    state.camX += (Math.max(-260, Math.min(3600, (p1.x + p2.x) / 2 + 60 + lookAhead)) - state.camX) * Math.min(1, dt * 4);
+    state.camY += (Math.max(200, Math.min(560, (p1.y + p2.y) / 2 + 140)) - state.camY) * Math.min(1, dt * 3);
+  }
 }
 
 function ropeStep(dt) {
@@ -1550,7 +1865,7 @@ function loop(now) {
   } else if (screen === 'play' && ready) {
     state.time -= dt;
     if (state.time <= 0) { state.time = 0; endGame(false); }
-    else if (p1.x > EXIT_X - 40 && p2.x > EXIT_X - 40) endGame(true);
+    else if (!ARENA && p1.x > EXIT_X - 40 && p2.x > EXIT_X - 40) endGame(true);
 
     acc += dt;
     let guard = 0;
@@ -1574,11 +1889,15 @@ function loop(now) {
     }
     tensionHint.textContent = tension > 0.78 ? '满格可甩出' : tension > 0.3 ? '正在拉紧' : '保持松绳';
 
-    const prog = Math.max(0, Math.min(1, (Math.min(p1.x, p2.x) + 380) / (EXIT_X + 380)));
-    progFill.style.width = (prog * 100).toFixed(0) + '%';
-    progPct.textContent = Math.round(prog * 100) + '%';
+    if (ARENA) {
+      updateArenaHUD();
+    } else {
+      const prog = Math.max(0, Math.min(1, (Math.min(p1.x, p2.x) + 380) / (EXIT_X + 380)));
+      progFill.style.width = (prog * 100).toFixed(0) + '%';
+      progPct.textContent = Math.round(prog * 100) + '%';
+    }
 
-    if (!tut.pull && p1.x > 150 && p2.x > 150) {
+    if (!ARENA && !tut.pull && p1.x > 150 && p2.x > 150) {
       tut.pull = true;
       toast('按住 F / J 拉绳，把队友拽过来', 3);
     }
@@ -1666,7 +1985,8 @@ document.getElementById('start').addEventListener('click', function (e) {
     buildLamps();
     buildHaze();
     buildPizzas();
-    buildHazard();
+    arenaAssets();
+    if (!ARENA) buildHazard();
     chars.green = buildCharacter(cutoutCanvas(gImg), 0xABE14D, p1.x, p1.y);
     chars.pink = buildCharacter(cutoutCanvas(pImg), 0xFF9AD6, p2.x, p2.y);
     buildRope();
