@@ -195,7 +195,7 @@ const EXIT_X = 3940;
 
 const state = {
   started: false, over: false, win: false,
-  time: 60, camX: -200, camY: 320, falls: 0, pizza: 0, shake: 0, lives: 3
+  time: 60, camX: -200, camY: 320, falls: 0, pizza: 0, shake: 0, lives: 3, bumpCd: 0
 };
 const checkpoint = { x: -180, y: 0 };
 const p1 = { x: -380, y: 0, vx: 0, vy: 0, grounded: false, squash: 0, jumpQueued: false, hit: 0 };
@@ -206,9 +206,12 @@ const pizzas = [];
 const fx = [];
 const hazard = { cx: 1360, cy: 270, len: 320, ang: 0, spd: 1.15, mesh: null, glow: null };
 let ropeMesh = null, ropePos = null;
+let ropeLayers = [], ropeDrops = [];
 const ROPE_N = 22;
 const HAND = 120;
 let ropePts = [], ropeWobble = 0, ropeTaut = false;
+const ropeCX = new Float32Array(ROPE_N), ropeCY = new Float32Array(ROPE_N);
+const ropeNX = new Float32Array(ROPE_N), ropeNY = new Float32Array(ROPE_N);
 let ropeRest = 330;
 let ready = false;
 let perf = 0;
@@ -229,32 +232,84 @@ function buildBackground(bgImage) {
   camera.add(mesh);
 }
 
+function platformBodyTexture() {
+  const c = document.createElement('canvas');
+  c.width = c.height = 64;
+  const g = c.getContext('2d');
+  const grd = g.createLinearGradient(0, 0, 0, 64);
+  grd.addColorStop(0, '#3a2166');
+  grd.addColorStop(0.45, '#241145');
+  grd.addColorStop(1, '#140a2b');
+  g.fillStyle = grd;
+  g.fillRect(0, 0, 64, 64);
+  for (let i = 0; i < 140; i++) {
+    g.fillStyle = 'rgba(255,255,255,' + (Math.random() * 0.05).toFixed(3) + ')';
+    g.fillRect(Math.random() * 64, Math.random() * 64, 1, 1);
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+
+function lipTexture(hex) {
+  const c = document.createElement('canvas');
+  c.width = 256; c.height = 32;
+  const g = c.getContext('2d');
+  const col = '#' + hex.toString(16).padStart(6, '0');
+  const grd = g.createLinearGradient(0, 0, 0, 32);
+  grd.addColorStop(0, '#ffffff');
+  grd.addColorStop(0.24, col);
+  grd.addColorStop(1, 'rgba(0,0,0,.28)');
+  g.fillStyle = grd;
+  const r = 13, x = 4, y = 3, w = 248, h = 26;
+  g.beginPath();
+  g.moveTo(x + r, y);
+  g.arcTo(x + w, y, x + w, y + h, r);
+  g.arcTo(x + w, y + h, x, y + h, r);
+  g.arcTo(x, y + h, x, y, r);
+  g.arcTo(x, y, x + w, y, r);
+  g.closePath();
+  g.fill();
+  g.fillStyle = 'rgba(255,255,255,.9)';
+  g.fillRect(x + 16, y + 4, w - 32, 3);
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+
 function buildPlatforms() {
   const colors = [0xC6F24E, 0x57E0FF, 0xFF8FA8];
+  const bodyTex = platformBodyTexture();
   const glowTex = new THREE.CanvasTexture(radialCanvas());
   PLATFORMS.forEach(function (p, i) {
     const w = p.x1 - p.x0, cx = (p.x0 + p.x1) / 2;
     const body = new THREE.Mesh(
       new THREE.BoxGeometry(w, 28, 56),
-      new THREE.MeshBasicMaterial({ color: 0x2a1550 })
+      new THREE.MeshBasicMaterial({ map: bodyTex })
     );
     body.position.set(cx, p.y - 14, 0);
     scene.add(body);
 
     const edgeColor = colors[i % 3];
-    const edge = new THREE.Mesh(
-      new THREE.BoxGeometry(w, 6, 60),
-      new THREE.MeshBasicMaterial({ color: edgeColor, toneMapped: false })
+    const lip = new THREE.Mesh(
+      new THREE.PlaneGeometry(w, 15),
+      new THREE.MeshBasicMaterial({
+        map: new THREE.CanvasTexture(lipTexture(edgeColor)),
+        transparent: true, toneMapped: false, depthWrite: false
+      })
     );
-    edge.position.set(cx, p.y + 3, 0);
-    scene.add(edge);
+    lip.position.set(cx, p.y + 7, 10);
+    scene.add(lip);
 
-    const spec = new THREE.Mesh(
-      new THREE.BoxGeometry(w, 2, 62),
-      new THREE.MeshBasicMaterial({ color: 0xdfeaff, transparent: true, opacity: 0.35, toneMapped: false })
-    );
-    spec.position.set(cx, p.y + 6.5, 0);
-    scene.add(spec);
+    [-0.32, 0.32].forEach(function (k) {
+      const br = new THREE.Mesh(
+        new THREE.BoxGeometry(4, 44, 4),
+        new THREE.MeshBasicMaterial({ color: 0x1a0f33 })
+      );
+      br.position.set(cx + w * k, p.y - 36, -32);
+      br.rotation.z = k > 0 ? -0.22 : 0.22;
+      scene.add(br);
+    });
 
     const glow = new THREE.Mesh(
       new THREE.PlaneGeometry(w * 1.25, 150),
@@ -337,24 +392,94 @@ function buildCharacter(canvas, tint, x, y) {
   return { mesh: mesh, glow: glow, shadow: shadow, baseW: w, baseH: h };
 }
 
-function buildRope() {
+function ropeTexture() {
+  const c = document.createElement('canvas');
+  c.width = 32; c.height = 128;
+  const g = c.getContext('2d');
+  const grd = g.createLinearGradient(0, 0, 32, 0);
+  grd.addColorStop(0, 'rgba(120,170,40,0)');
+  grd.addColorStop(0.16, 'rgba(150,200,60,0.92)');
+  grd.addColorStop(0.5, 'rgba(240,255,180,1)');
+  grd.addColorStop(0.84, 'rgba(150,200,60,0.92)');
+  grd.addColorStop(1, 'rgba(120,170,40,0)');
+  g.fillStyle = grd;
+  g.fillRect(0, 0, 32, 128);
+  g.globalCompositeOperation = 'multiply';
+  g.strokeStyle = 'rgba(88,128,30,.38)';
+  g.lineWidth = 6;
+  for (let y = -128; y < 128; y += 22) {
+    g.beginPath(); g.moveTo(0, y); g.lineTo(32, y + 16); g.stroke();
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+
+function ribbonGeometry() {
   const N = ROPE_N;
-  ropePos = new Float32Array(N * 2 * 3);
+  const pos = new Float32Array(N * 2 * 3);
+  const uv = new Float32Array(N * 2 * 2);
   const geo = new THREE.BufferGeometry();
-  geo.setAttribute('position', new THREE.BufferAttribute(ropePos, 3));
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
   const idx = [];
   for (let i = 0; i < N - 1; i++) {
     const a = i * 2;
     idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2);
   }
   geo.setIndex(idx);
-  ropeMesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({
-    color: 0xC6F24E, transparent: true, opacity: 0.95, side: THREE.DoubleSide,
-    toneMapped: false, depthWrite: false
-  }));
-  ropeMesh.frustumCulled = false;
-  scene.add(ropeMesh);
-  ropeMesh.userData.N = N;
+  for (let i = 0; i < N; i++) {
+    const v = i / (N - 1) * 9;
+    uv[i * 4] = 0; uv[i * 4 + 1] = v;
+    uv[i * 4 + 2] = 1; uv[i * 4 + 3] = v;
+  }
+  return { geo: geo, pos: pos };
+}
+
+function buildRope() {
+  const tex = ropeTexture();
+  ropeLayers = [
+    {
+      mul: 1, z: 30, layer: ribbonGeometry(),
+      mat: new THREE.MeshBasicMaterial({
+        map: tex, transparent: true, depthWrite: false, toneMapped: false, side: THREE.DoubleSide
+      })
+    },
+    {
+      mul: 2.6, z: 29, layer: ribbonGeometry(),
+      mat: new THREE.MeshBasicMaterial({
+        color: 0xC6F24E, transparent: true, opacity: 0.16, blending: THREE.AdditiveBlending,
+        depthWrite: false, toneMapped: false, side: THREE.DoubleSide
+      })
+    },
+    {
+      mul: 0.34, z: 31, layer: ribbonGeometry(),
+      mat: new THREE.MeshBasicMaterial({
+        color: 0xF6FFD8, transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending,
+        depthWrite: false, toneMapped: false, side: THREE.DoubleSide
+      })
+    }
+  ];
+  ropeLayers.forEach(function (L) {
+    L.mesh = new THREE.Mesh(L.layer.geo, L.mat);
+    L.mesh.frustumCulled = false;
+    scene.add(L.mesh);
+  });
+  ropeMesh = ropeLayers[0].mesh;
+  ropePos = ropeLayers[0].layer.pos;
+
+  for (let i = 0; i < 5; i++) {
+    const s = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: new THREE.CanvasTexture(radialCanvas()),
+      color: i % 2 ? 0xFF9AD6 : 0xC6F24E,
+      transparent: true, opacity: 0.5, blending: THREE.AdditiveBlending,
+      depthWrite: false, toneMapped: false
+    }));
+    s.scale.set(11, 11, 1);
+    scene.add(s);
+    ropeDrops.push(s);
+  }
   initRope();
 }
 
@@ -452,7 +577,7 @@ function buildPizzas() {
 
 function buildHazard() {
   const bar = new THREE.Mesh(
-    new THREE.BoxGeometry(hazard.len, 13, 13),
+    new THREE.CapsuleGeometry(6.5, hazard.len - 13, 4, 12),
     new THREE.MeshBasicMaterial({ color: 0xFF4D8D, toneMapped: false })
   );
   bar.position.set(hazard.cx, hazard.cy, 25);
@@ -630,37 +755,87 @@ function toggleMute() {
   if (b2) b2.textContent = muted ? '取消静音' : '静音';
 }
 
-/* 程序化配乐：84 BPM，低音 + 铺底 + 琶音，低血量时加紧张层 */
+/* 程序化配乐：118 BPM，鼓组 + 低音 riff + 和弦 stab + 主旋律，最后 10 秒加紧张层 */
 let musicStarted = false, musicTimer = null, musicStep = 0, musicNext = 0, musicBus = null, musicTense = false;
-function musicNote(freq, t, dur, type, gain) {
+let noiseBuf = null;
+function noiseBuffer() {
+  if (noiseBuf || !AC) return noiseBuf;
+  const len = Math.floor(AC.sampleRate * 0.35);
+  noiseBuf = AC.createBuffer(1, len, AC.sampleRate);
+  const d = noiseBuf.getChannelData(0);
+  for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+  return noiseBuf;
+}
+function kick(t, g) {
+  if (!AC || !musicBus) return;
+  const o = AC.createOscillator(), gn = AC.createGain();
+  o.type = 'sine';
+  o.frequency.setValueAtTime(160, t);
+  o.frequency.exponentialRampToValueAtTime(44, t + 0.11);
+  gn.gain.setValueAtTime(g, t);
+  gn.gain.exponentialRampToValueAtTime(0.0001, t + 0.22);
+  o.connect(gn); gn.connect(musicBus); o.start(t); o.stop(t + 0.24);
+}
+function snare(t) {
+  if (!AC || !musicBus) return;
+  const s = AC.createBufferSource(), f = AC.createBiquadFilter(), gn = AC.createGain();
+  s.buffer = noiseBuffer();
+  f.type = 'bandpass'; f.frequency.value = 1900; f.Q.value = 1.2;
+  gn.gain.setValueAtTime(0.11, t);
+  gn.gain.exponentialRampToValueAtTime(0.0001, t + 0.13);
+  s.connect(f); f.connect(gn); gn.connect(musicBus);
+  s.start(t); s.stop(t + 0.15);
+  const o = AC.createOscillator(), og = AC.createGain();
+  o.type = 'triangle'; o.frequency.value = 180;
+  og.gain.setValueAtTime(0.045, t);
+  og.gain.exponentialRampToValueAtTime(0.0001, t + 0.09);
+  o.connect(og); og.connect(musicBus); o.start(t); o.stop(t + 0.1);
+}
+function hat(t, g) {
+  if (!AC || !musicBus) return;
+  const s = AC.createBufferSource(), f = AC.createBiquadFilter(), gn = AC.createGain();
+  s.buffer = noiseBuffer();
+  f.type = 'highpass'; f.frequency.value = 7500;
+  gn.gain.setValueAtTime(g, t);
+  gn.gain.exponentialRampToValueAtTime(0.0001, t + 0.04);
+  s.connect(f); f.connect(gn); gn.connect(musicBus);
+  s.start(t); s.stop(t + 0.05);
+}
+function musicNote(freq, t, dur, type, gain, cutoff) {
   if (!AC || !musicBus) return;
   const o = AC.createOscillator(), g = AC.createGain(), f = AC.createBiquadFilter();
   o.type = type; o.frequency.value = freq;
-  f.type = 'lowpass'; f.frequency.value = 1400;
+  f.type = 'lowpass'; f.frequency.value = cutoff || 1400;
   g.gain.setValueAtTime(0.0001, t);
-  g.gain.exponentialRampToValueAtTime(gain, t + 0.03);
+  g.gain.exponentialRampToValueAtTime(gain, t + 0.02);
   g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
   o.connect(f); f.connect(g); g.connect(musicBus);
   o.start(t); o.stop(t + dur + 0.05);
 }
 function scheduleMusic() {
   if (!AC || !musicBus) return;
-  const stepDur = (60 / 84) / 2;
-  while (musicNext < AC.currentTime + 0.25) {
+  const stepDur = (60 / 118) / 4;
+  while (musicNext < AC.currentTime + 0.3) {
     const s = musicStep % 16;
     const bar = Math.floor(musicStep / 16) % 4;
     const t = musicNext;
-    const bass = [110, 87.3, 130.8, 98];
-    if (s % 4 === 0) musicNote(bass[bar], t, 0.55, 'triangle', 0.05);
-    if (s === 0) {
+    if (s === 0 || s === 4 || s === 8 || s === 12) kick(t, 0.3);
+    if (s === 6 || s === 14) kick(t, 0.14);
+    if (s === 4 || s === 12) snare(t);
+    if (s % 2 === 0) hat(t, s % 4 === 0 ? 0.05 : 0.026);
+    if (musicTense && s % 2 === 1) hat(t, 0.022);
+
+    if (s % 2 === 0) {
+      const riff = [110, 110, 130.8, 110, 87.3, 110, 98, 123.5];
+      musicNote(riff[(s >> 1) % 8], t, stepDur * 1.5, 'triangle', 0.05, 420);
+    }
+    if (s === 3 || s === 7 || s === 11 || s === 15) {
       const chords = [[220, 261.6, 329.6], [174.6, 220, 261.6], [261.6, 329.6, 392], [196, 246.9, 293.7]];
-      chords[bar].forEach(function (f) { musicNote(f, t, 1.4, 'sine', 0.016); });
+      chords[bar].forEach(function (f) { musicNote(f, t, 0.13, 'sawtooth', 0.016, 1500); });
     }
-    if (s % 2 === 1) {
-      const arp = [[440, 523, 659], [349, 440, 523], [523, 659, 784], [392, 494, 587]];
-      musicNote(arp[bar][(s >> 1) % 3], t, 0.18, 'triangle', musicTense ? 0.03 : 0.016);
-    }
-    if (musicTense && s % 2 === 0) musicNote(1318.5, t, 0.08, 'square', 0.008);
+    const lead = [0, 659, 0, 784, 0, 659, 0, 523, 587, 0, 659, 0, 784, 0, 880, 0];
+    if (lead[s]) musicNote(lead[s], t, stepDur * 0.85, 'square', 0.011, 2800);
+
     musicNext += stepDur;
     musicStep++;
   }
@@ -669,7 +844,7 @@ function startMusic() {
   if (!ensureAudio() || musicStarted) return;
   musicStarted = true;
   musicBus = AC.createGain();
-  musicBus.gain.value = 0.22;
+  musicBus.gain.value = 0.26;
   musicBus.connect(master);
   musicNext = AC.currentTime + 0.1;
   musicTimer = setInterval(scheduleMusic, 60);
@@ -829,6 +1004,60 @@ function endGame(win, reason) {
     pizza: state.pizza, falls: state.falls, stars: stars, rank: rank
   };
 }
+function resolvePlayers(dt) {
+  const R = 46, H = 168;
+  state.bumpCd = Math.max(0, state.bumpCd - dt);
+
+  function tryStand(a, b) {
+    const head = b.y + H;
+    if (Math.abs(a.x - b.x) < R && a.y <= head + 8 && a.y > head - 22 && a.vy <= 0) {
+      a.y = head;
+      a.vy = 0;
+      a.grounded = true;
+      a.x += b.x - b.prevX;
+      b.squash = Math.max(b.squash, 0.16);
+      if (!a.onHead) {
+        a.onHead = true;
+        a.squash = Math.max(a.squash, 0.12);
+        ring(a.x, head, 0xC6F24E);
+        beep(520, 0.1, 'sine', 0.04);
+        for (let i = 0; i < 4; i++) {
+          spawnPart(a.x, head, 0xFFFFFF, rnd(-70, 70), rnd(-30, 50), rnd(6, 12), 0.3);
+        }
+      }
+      return true;
+    }
+    return false;
+  }
+
+  const s1 = tryStand(p1, p2);
+  const s2 = s1 ? false : tryStand(p2, p1);
+  if (s1) p2.onHead = false;
+  if (s2) p1.onHead = false;
+
+  if (!s1 && !s2) {
+    p1.onHead = false;
+    p2.onHead = false;
+    const dx = p2.x - p1.x, dy = p2.y - p1.y;
+    if (Math.abs(dx) < R * 1.7 && Math.abs(dy) < H * 0.7) {
+      const push = (R * 1.7 - Math.abs(dx)) * 0.5;
+      const dir = dx >= 0 ? 1 : -1;
+      p2.x += push * dir;
+      p1.x -= push * dir;
+      p1.squash = Math.max(p1.squash, 0.1);
+      p2.squash = Math.max(p2.squash, 0.1);
+      if (state.bumpCd <= 0) {
+        state.bumpCd = 0.4;
+        state.shake = Math.max(state.shake, 2.5);
+        beep(280, 0.07, 'sine', 0.025);
+        for (let i = 0; i < 4; i++) {
+          spawnPart((p1.x + p2.x) / 2, Math.max(p1.y, p2.y) + 55, 0xFFFFFF,
+            rnd(-90, 90), rnd(-50, 40), rnd(6, 12), 0.3);
+        }
+      }
+    }
+  }
+}
 function respawn(p) {
   p.x = checkpoint.x; p.y = checkpoint.y + 4;
   p.vx = 0; p.vy = 0;
@@ -878,6 +1107,7 @@ function step(dt) {
     }
     p.vy -= TUNE.gravity * dt;
     const prevY = p.y;
+    p.prevX = p.x;
     p.x += p.vx * dt;
     p.y += p.vy * dt;
 
@@ -919,6 +1149,9 @@ function step(dt) {
       }
     }
   }
+
+  // 两个角色之间的碰撞：推开 / 踩头
+  resolvePlayers(dt);
 
   // 旋转机关
   if (hazard.mesh) {
@@ -984,7 +1217,8 @@ function updateVisuals(dt) {
     const c = i === 0 ? chars.green : chars.pink;
     if (!c) return;
     p.squash *= Math.pow(0.0005, dt * 2.2);
-    c.mesh.position.set(p.x, p.y + 85, 20);
+    const zOrder = i === 0 ? (p1.y >= p2.y ? 21 : 20) : (p2.y >= p1.y ? 21 : 20);
+    c.mesh.position.set(p.x, p.y + 85, zOrder);
     c.mesh.rotation.z = Math.max(-0.14, Math.min(0.14, p.vx / 2800));
     c.mesh.scale.set(1 + p.squash, 1 - p.squash, 1);
     c.glow.position.set(p.x, p.y + 85, 12);
@@ -1019,7 +1253,7 @@ function updateVisuals(dt) {
     pz.sprite.material.rotation = Math.sin(perf * 1.5 + pz.phase) * 0.08;
   }
 
-  if (hazard.mesh) hazard.mesh.rotation.z = hazard.ang;
+  if (hazard.mesh) hazard.mesh.rotation.z = hazard.ang + Math.PI / 2;
   updateFx(dt);
 
   updateRopeVisual(dt);
@@ -1080,27 +1314,40 @@ function updateRopeVisual(dt) {
     tx /= tl; ty /= tl;
     const nx = -ty, ny = tx;
     const u = i / (ROPE_N - 1);
-
-    // 绷紧时的颤动（只影响视觉，不影响物理）
     const amp = taut
       ? (1.2 + Math.min(6, stretch * 0.05)) * Math.sin(Math.PI * u) * (0.35 + ropeWobble)
       : 0;
     const wob = Math.sin(perf * 27 + i * 1.35) * amp;
-    const w = baseW * (0.72 + 0.28 * Math.sin(Math.PI * u));
-    const x = ropePts[i].x + nx * wob;
-    const y = ropePts[i].y + ny * wob;
-
-    const o = i * 6;
-    ropePos[o] = x + nx * w / 2;
-    ropePos[o + 1] = y + ny * w / 2;
-    ropePos[o + 2] = 30;
-    ropePos[o + 3] = x - nx * w / 2;
-    ropePos[o + 4] = y - ny * w / 2;
-    ropePos[o + 5] = 30;
+    ropeCX[i] = ropePts[i].x + nx * wob;
+    ropeCY[i] = ropePts[i].y + ny * wob;
+    ropeNX[i] = nx;
+    ropeNY[i] = ny;
   }
-  ropeMesh.geometry.attributes.position.needsUpdate = true;
-  ropeMesh.material.color.setHex(pulling ? 0xF2FFC8 : 0xC6F24E);
-  ropeMesh.material.opacity = 0.95;
+
+  ropeLayers.forEach(function (L) {
+    const pos = L.layer.pos;
+    for (let i = 0; i < ROPE_N; i++) {
+      const u = i / (ROPE_N - 1);
+      const w = baseW * L.mul * (0.72 + 0.28 * Math.sin(Math.PI * u));
+      const o = i * 6;
+      pos[o] = ropeCX[i] + ropeNX[i] * w / 2;
+      pos[o + 1] = ropeCY[i] + ropeNY[i] * w / 2;
+      pos[o + 2] = L.z;
+      pos[o + 3] = ropeCX[i] - ropeNX[i] * w / 2;
+      pos[o + 4] = ropeCY[i] - ropeNY[i] * w / 2;
+      pos[o + 5] = L.z;
+    }
+    L.layer.geo.attributes.position.needsUpdate = true;
+  });
+
+  ropeDrops.forEach(function (s, k) {
+    const idx = 3 + k * 4;
+    s.position.set(ropeCX[idx] + Math.sin(perf * 2 + k) * 2,
+      ropeCY[idx] - 9 - Math.abs(Math.sin(perf * 2.6 + k)) * 5, 32);
+    s.material.opacity = 0.34 + Math.sin(perf * 4 + k * 1.7) * 0.16;
+  });
+
+  ropeLayers[0].mat.color.setHex(pulling ? 0xE6FFB8 : 0xFFFFFF);
 }
 
 /* ---------------- 主循环 ---------------- */
