@@ -20,6 +20,22 @@ const tensionEl = document.getElementById('tension');
 const tensionFill = tensionEl.querySelector('i');
 const debugEl = document.getElementById('debug');
 const fpsEl = document.getElementById('fps');
+const levelCardEl = document.getElementById('levelCard');
+const countdownEl = document.getElementById('countdown');
+const cdNumEl = document.getElementById('cdNum');
+const pauseEl = document.getElementById('pause');
+const hitFlashEl = document.getElementById('hitflash');
+const rankEl = document.getElementById('rank');
+const bestLineEl = document.getElementById('bestLine');
+
+let screen = 'attract';        // attract | card | count | play | pause | result
+let cardT = 0, countT = 0, countLabel = '';
+let hitFlashT = 0;
+const tut = { move: false, pull: false, fling: false };
+const parts = [];
+const ghosts = [];
+const BEST_KEY = 'limeland_best_time';
+const rnd = (a, b) => a + Math.random() * (b - a);
 
 /* 可调参数（G1：全部外置，调试面板实时改） */
 const TUNE = {
@@ -488,6 +504,53 @@ function updateFx(dt) {
   }
 }
 
+function spawnPart(x, y, color, vx, vy, size, life) {
+  const spr = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: new THREE.CanvasTexture(radialCanvas()), color: color,
+    transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending,
+    depthWrite: false, toneMapped: false
+  }));
+  spr.position.set(x, y, 44);
+  spr.scale.set(size, size, 1);
+  scene.add(spr);
+  parts.push({ sprite: spr, vx: vx, vy: vy, life: life, max: life, size: size });
+}
+function updateParts(dt) {
+  for (let i = parts.length - 1; i >= 0; i--) {
+    const p = parts[i];
+    p.life -= dt;
+    if (p.life <= 0) { scene.remove(p.sprite); parts.splice(i, 1); continue; }
+    p.vy += 620 * dt;
+    p.sprite.position.x += p.vx * dt;
+    p.sprite.position.y += p.vy * dt;
+    const k = p.life / p.max;
+    p.sprite.material.opacity = 0.9 * k;
+    const s = p.size * (0.5 + k * 0.5);
+    p.sprite.scale.set(s, s, 1);
+  }
+}
+function spawnGhost(p, c) {
+  if (!c || !c.mesh) return;
+  const g = c.mesh.geometry.parameters;
+  const spr = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: c.mesh.material.map, transparent: true, opacity: 0.28,
+    depthWrite: false
+  }));
+  spr.scale.set(g.width, g.height, 1);
+  spr.position.set(p.x, p.y + 85, 18);
+  scene.add(spr);
+  ghosts.push({ sprite: spr, life: 0.3, max: 0.3 });
+}
+function updateGhosts(dt) {
+  for (let i = ghosts.length - 1; i >= 0; i--) {
+    const g = ghosts[i];
+    g.life -= dt;
+    if (g.life <= 0) { scene.remove(g.sprite); ghosts.splice(i, 1); continue; }
+    const k = g.life / g.max;
+    g.sprite.material.opacity = 0.28 * k;
+  }
+}
+
 function buildMotes() {
   const n = 120;
   const arr = new Float32Array(n * 3);
@@ -550,6 +613,58 @@ function toggleMute() {
   if (master) master.gain.value = muted ? 0 : 0.9;
   const b = document.getElementById('muteBtn');
   if (b) b.textContent = muted ? '取消静音' : '静音';
+  const b2 = document.getElementById('muteBtn2');
+  if (b2) b2.textContent = muted ? '取消静音' : '静音';
+}
+
+/* 程序化配乐：84 BPM，低音 + 铺底 + 琶音，低血量时加紧张层 */
+let musicStarted = false, musicTimer = null, musicStep = 0, musicNext = 0, musicBus = null, musicTense = false;
+function musicNote(freq, t, dur, type, gain) {
+  if (!AC || !musicBus) return;
+  const o = AC.createOscillator(), g = AC.createGain(), f = AC.createBiquadFilter();
+  o.type = type; o.frequency.value = freq;
+  f.type = 'lowpass'; f.frequency.value = 1400;
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(gain, t + 0.03);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.connect(f); f.connect(g); g.connect(musicBus);
+  o.start(t); o.stop(t + dur + 0.05);
+}
+function scheduleMusic() {
+  if (!AC || !musicBus) return;
+  const stepDur = (60 / 84) / 2;
+  while (musicNext < AC.currentTime + 0.25) {
+    const s = musicStep % 16;
+    const bar = Math.floor(musicStep / 16) % 4;
+    const t = musicNext;
+    const bass = [110, 87.3, 130.8, 98];
+    if (s % 4 === 0) musicNote(bass[bar], t, 0.55, 'triangle', 0.05);
+    if (s === 0) {
+      const chords = [[220, 261.6, 329.6], [174.6, 220, 261.6], [261.6, 329.6, 392], [196, 246.9, 293.7]];
+      chords[bar].forEach(function (f) { musicNote(f, t, 1.4, 'sine', 0.016); });
+    }
+    if (s % 2 === 1) {
+      const arp = [[440, 523, 659], [349, 440, 523], [523, 659, 784], [392, 494, 587]];
+      musicNote(arp[bar][(s >> 1) % 3], t, 0.18, 'triangle', musicTense ? 0.03 : 0.016);
+    }
+    if (musicTense && s % 2 === 0) musicNote(1318.5, t, 0.08, 'square', 0.008);
+    musicNext += stepDur;
+    musicStep++;
+  }
+}
+function startMusic() {
+  if (!ensureAudio() || musicStarted) return;
+  musicStarted = true;
+  musicBus = AC.createGain();
+  musicBus.gain.value = 0.22;
+  musicBus.connect(master);
+  musicNext = AC.currentTime + 0.1;
+  musicTimer = setInterval(scheduleMusic, 60);
+}
+function stopMusic() {
+  musicStarted = false;
+  if (musicTimer) { clearInterval(musicTimer); musicTimer = null; }
+  if (musicBus) { try { musicBus.disconnect(); } catch (e) { } musicBus = null; }
 }
 
 /* ---------------- 输入 ---------------- */
@@ -559,13 +674,18 @@ window.addEventListener('keydown', function (e) {
   keys[e.code] = true;
   if (!first) return;
   if (e.code === 'Space') {
-    if (!state.started) startGame();
-    else if (state.over) restart();
+    if (screen === 'attract' || screen === 'result') beginSequence();
   }
-  if (e.code === 'KeyR') restart();
-  if (e.code === 'KeyW') p1.jumpQueued = true;
-  if (e.code === 'ArrowUp') p2.jumpQueued = true;
-  if (e.code === 'KeyF' || e.code === 'KeyJ') beep(180, 0.12, 'triangle', 0.03);
+  if (e.code === 'Escape') {
+    if (screen === 'play') pauseGame();
+    else if (screen === 'pause') resumeGame();
+  }
+  if (e.code === 'KeyR') {
+    if (screen === 'play' || screen === 'pause' || screen === 'result') beginSequence();
+  }
+  if (e.code === 'KeyW' && screen === 'play') p1.jumpQueued = true;
+  if (e.code === 'ArrowUp' && screen === 'play') p2.jumpQueued = true;
+  if ((e.code === 'KeyF' || e.code === 'KeyJ') && screen === 'play') beep(180, 0.12, 'triangle', 0.03);
 });
 window.addEventListener('keyup', function (e) { keys[e.code] = false; });
 window.addEventListener('blur', function () { for (const k in keys) keys[k] = false; });
@@ -587,26 +707,64 @@ function resetGame() {
   });
   hazard.ang = 0;
   updatePizzaHUD();
+  timerEl.textContent = '60.0';
+  timerEl.classList.remove('warn');
+  tensionFill.style.width = '0%';
+  tensionEl.classList.remove('hot');
   state.camX = -200; state.camY = 320;
   endEl.classList.add('hidden');
 }
-function startGame() {
-  if (!ready) return;
+function showEl(el) { el.classList.remove('hidden'); }
+function hideEl(el) { el.classList.add('hidden'); }
+
+function beginSequence() {
+  ensureAudio();
+  if (AC && AC.state === 'suspended') AC.resume();
+  startMusic();
+  hideEl(startEl); hideEl(endEl); hideEl(pauseEl); hideEl(countdownEl);
   resetGame();
-  state.started = true;
-  startEl.classList.add('hidden');
-  beep(520, 0.18, 'sine', 0.05);
-  log('start');
-  startAmbient();
+  showEl(levelCardEl);
+  cardT = 1.25;
+  screen = 'card';
+  log('begin');
 }
-function restart() {
+function startPlay() {
+  hideEl(levelCardEl);
+  hideEl(countdownEl);
   resetGame();
+  screen = 'play';
   state.started = true;
-  startEl.classList.add('hidden');
-  endEl.classList.add('hidden');
-  log('restart');
+  state.over = false;
+  tut.move = true;
+  tut.pull = false;
+  flingTutorial = false;
+  log('play');
+  toast('A / D 移动 · W 跳', 2.2);
+}
+function pauseGame() {
+  if (screen !== 'play') return;
+  screen = 'pause';
+  showEl(pauseEl);
+  if (AC && AC.state === 'running') AC.suspend();
+}
+function resumeGame() {
+  if (screen !== 'pause') return;
+  hideEl(pauseEl);
+  screen = 'play';
+  if (AC) AC.resume();
+}
+function toTitle() {
+  screen = 'attract';
+  state.started = false;
+  state.over = false;
+  hideEl(endEl); hideEl(pauseEl); hideEl(countdownEl); hideEl(levelCardEl);
+  showEl(startEl);
+  resetGame();
+  stopMusic();
+  if (AC && AC.state === 'suspended') AC.resume();
 }
 function endGame(win) {
+  screen = 'result';
   state.over = true;
   state.win = win;
   document.getElementById('endTitle').textContent = win ? '逃出来了' : '时间到';
@@ -616,16 +774,38 @@ function endGame(win) {
     if (state.pizza >= 2 || state.time > 20) stars = 2;
     if (state.pizza === 3 && state.time > 15) stars = 3;
   }
+  const elapsed = +(60 - state.time).toFixed(1);
+  let rank = 'C';
+  if (win) rank = stars === 3 ? (elapsed < 35 ? 'S' : 'A') : stars === 2 ? 'A' : 'B';
+  rankEl.textContent = rank;
+  rankEl.style.color = rank === 'S' ? '#FFD45C' : rank === 'A' ? '#C6F24E' : rank === 'B' ? '#57E0FF' : '#9a8fb8';
+
+  const best = parseFloat(localStorage.getItem(BEST_KEY) || '0');
+  let newBest = false;
+  if (win && (!best || elapsed < best)) {
+    localStorage.setItem(BEST_KEY, String(elapsed));
+    newBest = true;
+  }
+  bestLineEl.textContent = win
+    ? (newBest ? 'NEW BEST · ' + elapsed.toFixed(1) + 's' : '最好成绩 ' + (best || elapsed).toFixed(1) + 's')
+    : '';
+
   endStarsEl.textContent = '★'.repeat(stars) + '☆'.repeat(3 - stars);
   document.getElementById('endStat').textContent = win
     ? '剩余 ' + state.time.toFixed(1) + ' 秒 · 披萨 ' + state.pizza + '/3 · 掉下去 ' + state.falls + ' 次'
     : '差一点 · 披萨 ' + state.pizza + '/3 · 掉下去 ' + state.falls + ' 次';
   endEl.classList.remove('hidden');
-  if (win) beep(660, 0.2, 'triangle', 0.05);
+  if (win) {
+    beep(660, 0.2, 'triangle', 0.05);
+    for (let i = 0; i < 26; i++) {
+      spawnPart(EXIT_X, 430, [0xC6F24E, 0xFF9AD6, 0xFFC94A][i % 3],
+        rnd(-260, 260), rnd(-320, 180), rnd(12, 26), rnd(0.6, 1.2));
+    }
+  }
   log(win ? 'win' : 'lose', { time: +state.time.toFixed(1), pizza: state.pizza, falls: state.falls });
   TELE.summary = {
-    win: win, elapsed: +(60 - state.time).toFixed(1),
-    pizza: state.pizza, falls: state.falls, stars: stars
+    win: win, elapsed: elapsed,
+    pizza: state.pizza, falls: state.falls, stars: stars, rank: rank
   };
 }
 function respawn(p) {
@@ -661,6 +841,7 @@ function step(dt) {
           state.shake = 6;
           beep(760, 0.16, 'triangle', 0.05);
           toast('甩出去了！', 0.9);
+          spawnGhost(p, i === 0 ? chars.green : chars.pink);
           log('fling', { x: Math.round(p.x) });
         } else {
           beep(440, 0.1, 'sine', 0.035);
@@ -683,7 +864,13 @@ function step(dt) {
         if (plat.x1 > checkpoint.x) { checkpoint.x = plat.x1 - 130; checkpoint.y = plat.y; }
       }
     }
-    if (!was && p.grounded) p.squash = 0.2;
+    if (!was && p.grounded) {
+      p.squash = 0.2;
+      for (let k = 0; k < 6; k++) {
+        spawnPart(p.x + rnd(-22, 22), p.y + 3, i === 0 ? 0xABE14D : 0xFF9AD6,
+          rnd(-140, 140), rnd(-90, 30), rnd(10, 20), rnd(0.25, 0.5));
+      }
+    }
     if (p.y < -520) respawn(p);
 
     // 收集披萨
@@ -699,6 +886,9 @@ function step(dt) {
         log('pizza', { n: state.pizza });
         beep(900, 0.16, 'triangle', 0.05);
         ring(pz.x, pz.y, 0xFFC94A);
+        for (let q = 0; q < 8; q++) {
+          spawnPart(pz.x, pz.y, 0xFFC94A, rnd(-200, 200), rnd(-200, 120), rnd(8, 16), rnd(0.3, 0.6));
+        }
       }
     }
   }
@@ -716,6 +906,7 @@ function step(dt) {
         p.vy = 470;
         state.shake = 14;
         beep(120, 0.22, 'sawtooth', 0.05);
+        hitFlashT = 0.35;
         log('hit', { x: Math.round(p.x) });
       }
     });
@@ -895,7 +1086,28 @@ function loop(now) {
   last = now;
   perf += dt;
 
-  if (state.started && !state.over && ready) {
+  if (screen === 'card') {
+    cardT -= dt;
+    if (cardT <= 0) {
+      hideEl(levelCardEl);
+      showEl(countdownEl);
+      countT = 2.4;
+      countLabel = '';
+      screen = 'count';
+    }
+  } else if (screen === 'count') {
+    countT -= dt;
+    const label = countT > 1.6 ? '3' : countT > 0.8 ? '2' : countT > 0 ? '1' : 'GO';
+    if (label !== countLabel) {
+      countLabel = label;
+      cdNumEl.textContent = label;
+      cdNumEl.style.animation = 'none';
+      void cdNumEl.offsetWidth;
+      cdNumEl.style.animation = '';
+      beep(label === 'GO' ? 880 : 440, 0.12, 'sine', 0.045);
+    }
+    if (countT <= -0.5) startPlay();
+  } else if (screen === 'play' && ready) {
     state.time -= dt;
     if (state.time <= 0) { state.time = 0; endGame(false); }
     else if (p1.x > EXIT_X - 40 && p2.x > EXIT_X - 40) endGame(true);
@@ -907,7 +1119,6 @@ function loop(now) {
       acc -= FIXED; guard++;
     }
     if (guard >= 10) acc = 0;
-    updateVisuals(dt);
 
     timerEl.textContent = state.time.toFixed(1);
     timerEl.classList.toggle('warn', state.time < 10);
@@ -916,13 +1127,24 @@ function loop(now) {
     const tension = Math.max(0, Math.min(1, (rd - TUNE.ropeRest) / (TUNE.ropeMax - TUNE.ropeRest)));
     tensionFill.style.width = (tension * 100).toFixed(0) + '%';
     tensionEl.classList.toggle('hot', tension > 0.12);
+
+    if (!tut.pull && p1.x > 150 && p2.x > 150) {
+      tut.pull = true;
+      toast('按住 F / J 拉绳，把队友拽过来', 3);
+    }
     if (!flingTutorial && p1.x > 2700 && p2.x > 2700) {
       flingTutorial = true;
       toast('绳子绷紧时起跳，会被甩过去', 3.2);
     }
-  } else if (ready) {
+  }
+
+  if (ready) {
     updateVisuals(dt);
-    timerEl.textContent = state.time.toFixed(1);
+    updateParts(dt);
+    updateGhosts(dt);
+    hitFlashT = Math.max(0, hitFlashT - dt);
+    hitFlashEl.style.opacity = (hitFlashT / 0.35 * 0.55).toFixed(2);
+    musicTense = screen === 'play' && state.time < 10;
   }
 
   if (toastT > 0) {
@@ -946,8 +1168,13 @@ function loop(now) {
 }
 
 /* ---------------- 启动 ---------------- */
-document.getElementById('go').addEventListener('click', startGame);
-document.getElementById('again').addEventListener('click', restart);
+document.getElementById('go').addEventListener('click', beginSequence);
+document.getElementById('again').addEventListener('click', beginSequence);
+document.getElementById('toTitle').addEventListener('click', toTitle);
+document.getElementById('resumeBtn').addEventListener('click', resumeGame);
+document.getElementById('restartBtn').addEventListener('click', beginSequence);
+document.getElementById('muteBtn2').addEventListener('click', toggleMute);
+document.getElementById('titleBtn').addEventListener('click', toTitle);
 
 /* G1 调试面板 */
 document.getElementById('sGrav').addEventListener('input', function (e) { TUNE.gravity = +e.target.value; });
@@ -975,7 +1202,7 @@ window.addEventListener('keydown', function (e) {
   if (e.code === 'KeyM') toggleMute();
 });
 document.getElementById('start').addEventListener('click', function (e) {
-  if (e.target.id === 'start') startGame();
+  if (e.target.id === 'start') beginSequence();
 });
 
 (async function init() {

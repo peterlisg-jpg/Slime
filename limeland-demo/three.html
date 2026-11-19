@@ -63,6 +63,26 @@
   .debug .row{display:flex;gap:6px;margin-top:8px}
   .debug button{flex:1;padding:5px 4px;border-radius:6px;border:1px solid rgba(198,242,78,.3);
     background:rgba(198,242,78,.08);color:#dfe9c0;font:600 10px/1.2 inherit;cursor:pointer}
+  .hitflash{position:absolute;inset:0;pointer-events:none;opacity:0;transition:opacity .12s;
+    background:radial-gradient(120% 90% at 50% 50%,rgba(255,60,110,0) 40%,rgba(255,40,90,.55) 100%)}
+  @keyframes breathe{0%,100%{text-shadow:0 0 34px rgba(198,242,78,.42),0 0 80px rgba(198,242,78,.18)}
+    50%{text-shadow:0 0 52px rgba(198,242,78,.75),0 0 120px rgba(198,242,78,.3)}}
+  .overlay h1{animation:breathe 3.4s ease-in-out infinite}
+  @keyframes floaty{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+  @keyframes pop{0%{transform:scale(1.5);opacity:0}35%{opacity:1}100%{transform:scale(1);opacity:1}}
+  .cd-num{font:900 150px/1 ui-monospace,monospace;color:#C6F24E;
+    text-shadow:0 0 50px rgba(198,242,78,.6),0 0 120px rgba(198,242,78,.35);animation:pop .45s ease-out}
+  .lc-kicker{font:700 12px/1 ui-monospace,monospace;letter-spacing:6px;color:#C6F24E;opacity:.8}
+  .lc-title{font-size:42px;font-weight:900;letter-spacing:4px;margin:6px 0 2px;color:#fff}
+  .lc-sub{font-size:14px;letter-spacing:2px;color:#9a8fb8}
+  .rank{font:900 84px/1 ui-monospace,monospace;color:#C6F24E;
+    text-shadow:0 0 40px rgba(198,242,78,.55);animation:pop .5s ease-out}
+  .best{margin-top:2px;font:600 12px/1.6 ui-monospace,monospace;letter-spacing:1px;color:#FFC94A}
+  .pauseBtns{display:flex;gap:10px;margin-top:8px;flex-wrap:wrap;justify-content:center}
+  .pauseBtns button,.ghost{padding:9px 18px;border-radius:999px;border:1px solid rgba(198,242,78,.28);
+    background:rgba(198,242,78,.07);color:#dfe9c0;font:700 13px/1.2 inherit;letter-spacing:1px;cursor:pointer}
+  .pauseBtns button:hover,.ghost:hover{background:rgba(198,242,78,.16)}
+  .ghost{margin-top:8px;font-size:12px;color:#9a8fb8;border-color:rgba(255,255,255,.14);background:transparent}
 </style>
 </head>
 <body>
@@ -70,6 +90,7 @@
   <div id="stage"></div>
   <div class="vignette"></div>
   <div class="grain"></div>
+  <div class="hitflash" id="hitflash"></div>
   <div class="tension" id="tension"><i></i></div>
   <div class="toast" id="toast"></div>
 
@@ -98,20 +119,45 @@
 
   <div class="overlay" id="start">
     <h1>拉丝</h1>
-    <p>第 1 关 · 夜光画室 · 60 秒</p>
+    <p>第 1 关 · 夜光画室</p>
     <div class="keys">
       <div><b>A</b><b>D</b> 移动　<b>W</b> 跳　<b>F</b> 拉绳</div>
       <div><b>←</b><b>→</b> 移动　<b>↑</b> 跳　<b>J</b> 拉绳</div>
     </div>
     <div class="stat">偷到披萨，两个人一起到终点</div>
     <button class="go" id="go">空格开始</button>
+    <div class="stat" style="opacity:.45;font-size:11px;margin-top:10px">60 秒 · 双人 · 可单人 + AI</div>
+  </div>
+
+  <div class="overlay hidden" id="levelCard">
+    <div class="lc-kicker">LEVEL 01</div>
+    <div class="lc-title">夜光画室</div>
+    <div class="lc-sub">偷到披萨，两个人一起到终点</div>
+  </div>
+
+  <div class="overlay hidden" id="countdown">
+    <div class="cd-num" id="cdNum">3</div>
+  </div>
+
+  <div class="overlay hidden" id="pause">
+    <h2>暂停</h2>
+    <div class="stat">Esc 继续</div>
+    <div class="pauseBtns">
+      <button id="resumeBtn">继续</button>
+      <button id="restartBtn">重开</button>
+      <button id="muteBtn2">静音</button>
+      <button id="titleBtn">回标题</button>
+    </div>
   </div>
 
   <div class="overlay hidden" id="end">
+    <div class="rank" id="rank">A</div>
     <h2 id="endTitle">逃出来了</h2>
     <div class="stars" id="endStars">★★★</div>
     <div class="stat" id="endStat"></div>
+    <div class="best" id="bestLine"></div>
     <button class="go" id="again">R 再来一局</button>
+    <button class="ghost" id="toTitle">回标题</button>
   </div>
 </div>
 
