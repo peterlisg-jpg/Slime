@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>拉丝 · UI 方向稿</title>
+<style>
+  :root{
+    --lime:#C6F24E; --amber:#FFC94A; --pink:#FF8FA8;
+    --ink:#05010c; --text:#F2ECFF; --muted:#8d7fb0; --line:rgba(255,255,255,.14);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:#07020f;color:var(--text);
+    font-family:"PingFang SC","Noto Sans SC","Microsoft YaHei",system-ui,sans-serif;
+    padding:48px 0 80px}
+  .head{max-width:1100px;margin:0 auto 26px;padding:0 24px}
+  .head h1{font-size:22px;margin:0 0 6px;letter-spacing:1px}
+  .head p{margin:0;color:var(--muted);font-size:13px;line-height:1.7}
+  .wrap{max-width:1100px;margin:0 auto;padding:0 24px;display:flex;flex-direction:column;gap:34px}
+  .tag{font:600 11px/1 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.22em;
+    color:var(--muted);margin-bottom:8px;display:flex;gap:12px;align-items:baseline}
+  .tag b{color:var(--lime);font-size:13px}
+  .screen{position:relative;width:100%;aspect-ratio:16/9;border-radius:14px;overflow:hidden;
+    box-shadow:0 24px 70px rgba(0,0,0,.65),0 0 0 1px rgba(198,242,78,.10)}
+  .bg{position:absolute;inset:0;background:url(assets/glow_room.jpg) center/cover no-repeat;
+    filter:brightness(.58) saturate(.85) blur(1px);transform:scale(1.06)}
+  .shade{position:absolute;inset:0}
+  .s-title .shade{background:linear-gradient(180deg,rgba(5,1,12,.62) 0%,rgba(5,1,12,.35) 45%,rgba(5,1,12,.86) 100%)}
+  .s-hud .shade{background:linear-gradient(180deg,rgba(5,1,12,.42),rgba(5,1,12,.05) 40%,rgba(5,1,12,.55))}
+  .s-pause .shade{background:linear-gradient(90deg,rgba(5,1,12,.92) 0%,rgba(5,1,12,.7) 45%,rgba(5,1,12,.35) 100%)}
+  .s-result .shade{background:linear-gradient(90deg,rgba(5,1,12,.9) 0%,rgba(5,1,12,.55) 55%,rgba(5,1,12,.4) 100%)}
+  .content{position:relative;height:100%;padding:6% 7%;display:flex;flex-direction:column}
+
+  /* 标题 */
+  .logo{font-size:clamp(54px,8.5vw,96px);font-weight:900;letter-spacing:6px;line-height:1;
+    background:linear-gradient(180deg,#EBFFAE 0%,#C6F24E 52%,#93C72C 100%);
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+    filter:drop-shadow(0 0 26px rgba(198,242,78,.35))}
+  .logo-rule{width:clamp(120px,18vw,220px);height:3px;margin:16px 0 14px;
+    background:linear-gradient(90deg,var(--lime),rgba(198,242,78,0));border-radius:2px}
+  .logo-en{font:700 12px/1 ui-monospace,monospace;letter-spacing:9px;color:rgba(255,255,255,.55)}
+  .tagline{margin-top:auto;font-size:clamp(14px,1.6vw,18px);letter-spacing:2px;color:rgba(255,255,255,.78);font-weight:600}
+  .tagline span{color:var(--muted);font-weight:400;font-size:.85em;margin-left:14px;letter-spacing:1px}
+  .cta{margin-top:14px;display:inline-flex;align-items:center;gap:14px;align-self:flex-start;
+    padding:14px 22px 14px 18px;border-left:3px solid var(--lime);
+    background:linear-gradient(90deg,rgba(198,242,78,.14),rgba(198,242,78,0));cursor:pointer}
+  .cta b{font-size:15px;letter-spacing:3px;color:#E9FFB0;font-weight:800}
+  .cta small{font:600 10px/1 ui-monospace,monospace;letter-spacing:2px;color:rgba(255,255,255,.45)}
+  .foot{position:absolute;left:7%;right:7%;bottom:6%;display:flex;justify-content:space-between;
+    font:600 10px/1.6 ui-monospace,monospace;letter-spacing:2px;color:rgba(255,255,255,.35)}
+
+  /* HUD */
+  .hud-top{display:flex;justify-content:space-between;align-items:flex-start}
+  .level{font:700 11px/1.6 ui-monospace,monospace;letter-spacing:3px;color:rgba(255,255,255,.55)}
+  .level b{display:block;font-size:17px;letter-spacing:2px;color:#fff;margin-top:4px}
+  .level i{display:block;width:34px;height:2px;background:var(--lime);margin-top:8px;border-radius:1px}
+  .timer{text-align:right}
+  .timer b{font:700 clamp(30px,4.2vw,46px)/1 ui-monospace,monospace;letter-spacing:2px;color:#fff;
+    text-shadow:0 0 24px rgba(255,255,255,.25)}
+  .timer span{display:block;margin-top:6px;font:600 10px/1 ui-monospace,monospace;letter-spacing:2px;color:rgba(255,255,255,.4)}
+  .pizzas{display:flex;gap:7px;justify-content:flex-end;margin-top:10px}
+  .pizzas i{width:11px;height:11px;border-radius:50%;border:1.5px solid rgba(255,201,74,.5);display:block}
+  .pizzas i.on{background:var(--amber);border-color:var(--amber);box-shadow:0 0 12px rgba(255,201,74,.6)}
+  .toast{margin:auto auto 0;padding:9px 18px;background:rgba(8,3,20,.72);
+    border-left:2px solid var(--lime);font-size:13px;letter-spacing:1.5px;color:#E9FFB0}
+  .tension{margin-top:14px;width:220px;height:2px;background:rgba(255,255,255,.12);position:relative}
+  .tension i{position:absolute;left:0;top:0;bottom:0;width:64%;
+    background:linear-gradient(90deg,var(--lime),#fff);box-shadow:0 0 10px rgba(198,242,78,.6)}
+
+  /* 暂停 */
+  .pause-label{font:700 10px/1 ui-monospace,monospace;letter-spacing:5px;color:var(--lime);opacity:.8}
+  .pause-title{font-size:clamp(40px,6vw,64px);font-weight:900;letter-spacing:6px;margin:10px 0 18px}
+  .pause-rule{width:280px;height:1px;background:var(--line);margin-bottom:22px}
+  .menu{display:flex;flex-direction:column;gap:2px}
+  .menu div{display:flex;align-items:baseline;gap:18px;padding:11px 0;color:rgba(255,255,255,.75);
+    font-size:16px;letter-spacing:2px;border-bottom:1px solid rgba(255,255,255,.06);max-width:320px}
+  .menu em{font:600 10px/1 ui-monospace,monospace;letter-spacing:2px;color:var(--muted);font-style:normal}
+  .menu div.on{color:#E9FFB0}
+  .menu div.on em{color:var(--lime)}
+  .hint{position:absolute;left:7%;bottom:6%;font:600 10px/1.6 ui-monospace,monospace;
+    letter-spacing:2px;color:rgba(255,255,255,.35)}
+
+  /* 结算 */
+  .res-main{display:flex;align-items:center;gap:7%;margin-top:6%}
+  .rankblock{text-align:center}
+  .rankblock small{font:700 10px/1 ui-monospace,monospace;letter-spacing:5px;color:var(--muted)}
+  .rankblock b{display:block;font:900 clamp(90px,13vw,160px)/1 ui-monospace,monospace;color:var(--lime);
+    text-shadow:0 0 60px rgba(198,242,78,.45);margin-top:6px}
+  .res-info{flex:1}
+  .stars{font-size:clamp(22px,3vw,34px);letter-spacing:8px;color:var(--amber);
+    text-shadow:0 0 26px rgba(255,201,74,.5)}
+  .res-title{font-size:clamp(24px,3.4vw,40px);font-weight:900;letter-spacing:4px;margin:14px 0 18px}
+  .stats{display:flex;gap:34px;flex-wrap:wrap}
+  .stats div{font:600 10px/1.7 ui-monospace,monospace;letter-spacing:2px;color:var(--muted)}
+  .stats b{display:block;font-size:20px;color:#fff;letter-spacing:1px;margin-top:4px}
+  .best{margin-top:18px;font:700 11px/1 ui-monospace,monospace;letter-spacing:2px;color:var(--amber)}
+  .res-cta{margin-top:auto;display:flex;align-items:center;gap:16px;padding-top:18px;
+    border-top:1px solid var(--line);max-width:520px;font-size:14px;letter-spacing:2px;color:rgba(255,255,255,.7)}
+  .res-cta b{color:#E9FFB0;font-weight:800}
+  .res-cta span{margin-left:auto;font:600 10px/1 ui-monospace,monospace;color:rgba(255,255,255,.35);letter-spacing:2px}
+</style>
+</head>
+<body>
+  <div class="head">
+    <h1>拉丝 · UI 方向稿</h1>
+    <p>目标：去掉“网页控件”感。规则：只用角落、只用细线和字重建立层级、没有一个圆角药丸、按钮做成“场景里的东西”而不是网页按钮。<br>最终字体需授权替换，这里先用系统字重演示层级。</p>
+  </div>
+
+  <div class="wrap">
+
+    <div>
+      <div class="tag"><b>01</b> 标题 · 一张海报，不是一页网页</div>
+      <div class="screen s-title">
+        <div class="bg"></div><div class="shade"></div>
+        <div class="content">
+          <div class="logo">拉丝</div>
+          <div class="logo-rule"></div>
+          <div class="logo-en">L I M E L A N D</div>
+          <div class="tagline">两个史莱姆，一根绳，一整家店<span>第 1 关 · 夜光画室</span></div>
+          <div class="cta"><b>按空格开始</b><small>SPACE</small></div>
+        </div>
+        <div class="foot"><span>2 PLAYERS · 60 SEC</span><span>v0.9 VERTICAL SLICE</span></div>
+      </div>
+    </div>
+
+    <div>
+      <div class="tag"><b>02</b> 游戏内 HUD · 只占两个角</div>
+      <div class="screen s-hud">
+        <div class="bg"></div><div class="shade"></div>
+        <div class="content">
+          <div class="hud-top">
+            <div class="level">LEVEL 01<i></i><b>夜光画室</b></div>
+            <div class="timer">
+              <b>42.6</b>
+              <span>REMAINING</span>
+              <div class="pizzas"><i class="on"></i><i class="on"></i><i></i></div>
+            </div>
+          </div>
+          <div class="toast">按住 F / J 拉绳，把队友拽过来</div>
+          <div class="tension"><i></i></div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="tag"><b>03</b> 暂停 · 左侧竖排，没有按钮框</div>
+      <div class="screen s-pause">
+        <div class="bg"></div><div class="shade"></div>
+        <div class="content">
+          <div class="pause-label">PAUSED</div>
+          <div class="pause-title">暂停</div>
+          <div class="pause-rule"></div>
+          <div class="menu">
+            <div class="on"><em>01</em>继续</div>
+            <div><em>02</em>重开这一关</div>
+            <div><em>03</em>音量</div>
+            <div><em>04</em>回标题</div>
+          </div>
+        </div>
+        <div class="hint">ESC 返回游戏</div>
+      </div>
+    </div>
+
+    <div>
+      <div class="tag"><b>04</b> 结算 · 评级是主角，数字退后</div>
+      <div class="screen s-result">
+        <div class="bg"></div><div class="shade"></div>
+        <div class="content">
+          <div class="res-main">
+            <div class="rankblock"><small>RANK</small><b>A</b></div>
+            <div class="res-info">
+              <div class="stars">★★☆</div>
+              <div class="res-title">逃出来了</div>
+              <div class="stats">
+                <div>用时<b>42.3s</b></div>
+                <div>披萨<b>2 / 3</b></div>
+                <div>掉坑<b>0</b></div>
+              </div>
+              <div class="best">NEW BEST · 42.3s</div>
+            </div>
+          </div>
+          <div class="res-cta"><b>R 再来一局</b><span>按 ESC 回标题</span></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</body>
+</html>
