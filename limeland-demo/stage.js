@@ -154,49 +154,34 @@
     return off * s.h * s.sy;
   }
 
-  function curvePoint(s, v, t) {
-    const wob = Math.sin(t * 2.2 + s.phase + v * 4.6) * 2.2 * v;
-    return {
-      x: s.x + offsetAt(s, v) + wob,
-      y: s.y - v * s.h * s.sy
-    };
-  }
-
-  /* 共享边界条带：相邻条带使用同一个边界点，因此不会裂开 */
+  /* 行剪切：不再让每条带单独旋转，改成整张刚性旋转 + 逐行水平错位。
+     行与行上下相邻、只做平移，因此在几何上不可能出现缝隙。 */
   function drawSprite(g, s, t) {
-    const N = 80;
+    const N = 112;
     const w = s.w * s.sx;
-    const srcH = s.ch / N;
-    const overlap = 2.6;
-    const cos = Math.cos(s.rot), sin = Math.sin(s.rot);
+    const hh = s.h * s.sy;
+    const step = hh / N;
+    const srcStep = s.ch / N;
 
-    function world(p) {
-      const dx = p.x - s.x, dy = p.y - s.y;
-      return { x: s.x + dx * cos - dy * sin, y: s.y + dx * sin + dy * cos };
+    g.save();
+    if (s.rot) {
+      g.translate(s.x, s.y);
+      g.rotate(s.rot);
+      g.translate(-s.x, -s.y);
     }
 
     for (let i = 0; i < N; i++) {
-      const v0 = i / N, v1 = (i + 1) / N;
-      const p0 = world(curvePoint(s, v0, t));
-      const p1 = world(curvePoint(s, v1, t));
-      const dx = p1.x - p0.x, dy = p1.y - p0.y;
-      const len = Math.hypot(dx, dy) || 0.001;
-      const ang = Math.atan2(dx, -dy);
-      const midX = (p0.x + p1.x) / 2;
-      const midY = (p0.y + p1.y) / 2;
-      const vv = (v0 + v1) / 2;
-      const ww = w * (1 - (1 - vv) * 0.035);
-
-      g.save();
-      g.translate(midX, midY);
-      g.rotate(ang);
-      // v=0 是角色底部，图片顶行对应 v=1，因此取样要从下往上取
-      const srcY = Math.max(0, s.ch - (i + 1) * srcH);
+      const v = (i + 0.5) / N;
+      const off = offsetAt(s, v) + Math.sin(t * 2.2 + s.phase + v * 4.6) * 2.2 * v;
+      const width = w * (1 - (1 - v) * 0.03);
+      const srcY = Math.max(0, s.ch - (i + 1) * srcStep);
+      const srcH = Math.min(srcStep * 1.06, s.ch - srcY);
+      const dy = s.y - (i + 1) * step;
       g.drawImage(s.canvas,
-        0, srcY, s.cw, Math.min(srcH * 1.02, s.ch - srcY),
-        -ww / 2, -len / 2 - overlap, ww, len + overlap * 2);
-      g.restore();
+        0, srcY, s.cw, srcH,
+        s.x + off - width / 2, dy, width, step + 0.6);
     }
+    g.restore();
   }
 
   /* ---------------- 场景状态 ---------------- */
@@ -483,6 +468,7 @@
   const sparks = [];
 
   function drawArm(s, a, i, t) {
+    if (!s.armTargets[i]) return;
     const x0 = a.shx, y0 = a.shy, x1 = a.x, y1 = a.y;
     const dx = x1 - x0, dy = y1 - y0;
     const len = Math.hypot(dx, dy) || 1;
