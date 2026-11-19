@@ -27,7 +27,7 @@ renderer.setSize(W, H);
 renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.05;
+renderer.toneMappingExposure = 0.72;
 stageEl.appendChild(renderer.domElement);
 
 const scene = new THREE.Scene();
@@ -42,7 +42,7 @@ scene.add(camera);
 const composer = new EffectComposer(renderer);
 composer.setSize(W, H);
 composer.addPass(new RenderPass(scene, camera));
-const bloom = new UnrealBloomPass(new THREE.Vector2(W, H), 0.95, 0.65, 0.55);
+const bloom = new UnrealBloomPass(new THREE.Vector2(W, H), 0.38, 0.45, 0.82);
 composer.addPass(bloom);
 composer.addPass(new OutputPass());
 
@@ -158,7 +158,9 @@ const checkpoint = { x: -180, y: 0 };
 const p1 = { x: -380, y: 0, vx: 0, vy: 0, grounded: false, squash: 0, jumpQueued: false };
 const p2 = { x: 20, y: 0, vx: 0, vy: 0, grounded: false, squash: 0, jumpQueued: false };
 const chars = {};
-let ropeMesh = null, ropePos = null, ropeWidth = 7;
+let ropeMesh = null, ropePos = null;
+const ROPE_N = 22;
+let ropePts = [], ropeWobble = 0, ropeTaut = false;
 let ropeRest = 330;
 let ready = false;
 let perf = 0;
@@ -170,7 +172,7 @@ function buildBackground(bgImage) {
   const tex = new THREE.CanvasTexture(canvas);
   tex.colorSpace = THREE.SRGBColorSpace;
   const geo = new THREE.PlaneGeometry(2800, 1575);
-  const mat = new THREE.MeshBasicMaterial({ map: tex, fog: false, depthWrite: false });
+  const mat = new THREE.MeshBasicMaterial({ map: tex, fog: false, depthWrite: false, color: 0x8078a0 });
   const mesh = new THREE.Mesh(geo, mat);
   mesh.position.set(0, 0, -2700);
   mesh.renderOrder = -10;
@@ -200,7 +202,7 @@ function buildPlatforms() {
     const glow = new THREE.Mesh(
       new THREE.PlaneGeometry(w * 1.25, 150),
       new THREE.MeshBasicMaterial({
-        map: glowTex, color: edgeColor, transparent: true, opacity: 0.13,
+        map: glowTex, color: edgeColor, transparent: true, opacity: 0.08,
         blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false
       })
     );
@@ -208,30 +210,14 @@ function buildPlatforms() {
     scene.add(glow);
   });
 
-  // 霓虹画框（中景，产生视差）
+  // 霓虹画框交给背景插画本身，不再叠一层，避免画面过密
   const frameColors = [0xC6F24E, 0xFF8FA8, 0x57E0FF];
-  for (let i = 0; i < 14; i++) {
-    const x = -500 + i * 360;
-    const y = 330 + (i % 3) * 110;
-    const w = 118 + (i % 2) * 46, h = 86 + (i % 2) * 40;
-    const pts = [
-      new THREE.Vector3(-w / 2, -h / 2, 0), new THREE.Vector3(w / 2, -h / 2, 0),
-      new THREE.Vector3(w / 2, h / 2, 0), new THREE.Vector3(-w / 2, h / 2, 0)
-    ];
-    const line = new THREE.LineLoop(
-      new THREE.BufferGeometry().setFromPoints(pts),
-      new THREE.LineBasicMaterial({ color: frameColors[i % 3], transparent: true, opacity: 0.5, toneMapped: false })
-    );
-    line.position.set(x, y, -500);
-    line.rotation.z = (i % 2 ? 1 : -1) * 0.06;
-    scene.add(line);
-  }
 
   // 中景光斑
   const dotTex = new THREE.CanvasTexture(radialCanvas());
-  for (let i = 0; i < 18; i++) {
+  for (let i = 0; i < 6; i++) {
     const s = new THREE.Sprite(new THREE.SpriteMaterial({
-      map: dotTex, color: frameColors[i % 3], transparent: true, opacity: 0.16,
+      map: dotTex, color: frameColors[i % 3], transparent: true, opacity: 0.08,
       blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false
     }));
     s.position.set(-600 + Math.random() * 5000, 120 + Math.random() * 560, -460);
@@ -263,7 +249,7 @@ function buildCharacter(canvas, tint, x, y) {
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.anisotropy = 4;
   const aspect = canvas.width / canvas.height;
-  const h = 150, w = h * aspect;
+  const h = 185, w = h * aspect;
   const mesh = new THREE.Mesh(
     new THREE.PlaneGeometry(w, h),
     new THREE.MeshBasicMaterial({ map: tex, transparent: true, alphaTest: 0.02, side: THREE.DoubleSide })
@@ -273,10 +259,10 @@ function buildCharacter(canvas, tint, x, y) {
 
   const glow = new THREE.Sprite(new THREE.SpriteMaterial({
     map: new THREE.CanvasTexture(radialCanvas()), color: tint,
-    transparent: true, opacity: 0.34, blending: THREE.AdditiveBlending,
+    transparent: true, opacity: 0.12, blending: THREE.AdditiveBlending,
     depthWrite: false, toneMapped: false
   }));
-  glow.scale.set(300, 300, 1);
+  glow.scale.set(240, 240, 1);
   glow.position.set(x, y + 80, 12);
   scene.add(glow);
 
@@ -295,7 +281,7 @@ function buildCharacter(canvas, tint, x, y) {
 }
 
 function buildRope() {
-  const N = 26;
+  const N = ROPE_N;
   ropePos = new Float32Array(N * 2 * 3);
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.BufferAttribute(ropePos, 3));
@@ -312,10 +298,25 @@ function buildRope() {
   ropeMesh.frustumCulled = false;
   scene.add(ropeMesh);
   ropeMesh.userData.N = N;
+  initRope();
+}
+
+function initRope() {
+  const a = { x: p1.x, y: p1.y + 115 };
+  const b = { x: p2.x, y: p2.y + 115 };
+  ropePts = [];
+  for (let i = 0; i < ROPE_N; i++) {
+    const u = i / (ROPE_N - 1);
+    const x = a.x + (b.x - a.x) * u;
+    const y = a.y + (b.y - a.y) * u;
+    ropePts.push({ x: x, y: y, px: x, py: y });
+  }
+  ropeWobble = 0;
+  ropeTaut = false;
 }
 
 function buildMotes() {
-  const n = 240;
+  const n = 120;
   const arr = new Float32Array(n * 3);
   for (let i = 0; i < n; i++) {
     arr[i * 3] = -900 + Math.random() * 5400;
@@ -325,7 +326,7 @@ function buildMotes() {
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.BufferAttribute(arr, 3));
   const mat = new THREE.PointsMaterial({
-    size: 3.2, color: 0xfff2c0, transparent: true, opacity: 0.5,
+    size: 2.2, color: 0xfff2c0, transparent: true, opacity: 0.22,
     blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false
   });
   scene.add(new THREE.Points(geo, mat));
@@ -369,6 +370,7 @@ function resetGame() {
   p2.x = 20; p2.y = 0; p2.vx = 0; p2.vy = 0; p2.grounded = false; p2.squash = 0;
   checkpoint.x = -180; checkpoint.y = 0;
   ropeRest = 330;
+  initRope();
   state.time = 60; state.over = false; state.win = false; state.falls = 0;
   state.camX = -200; state.camY = 320;
   endEl.classList.add('hidden');
@@ -436,8 +438,8 @@ function step(dt) {
     if (p.y < -520) respawn(p);
   }
   ropeStep(dt);
-  state.camX += (Math.max(-260, Math.min(3320, (p1.x + p2.x) / 2 + 70)) - state.camX) * Math.min(1, dt * 4);
-  state.camY += (Math.max(300, Math.min(560, (p1.y + p2.y) / 2 + 170)) - state.camY) * Math.min(1, dt * 3);
+  state.camX += (Math.max(-260, Math.min(3320, (p1.x + p2.x) / 2 + 60)) - state.camX) * Math.min(1, dt * 4);
+  state.camY += (Math.max(220, Math.min(560, (p1.y + p2.y) / 2 + 140)) - state.camY) * Math.min(1, dt * 3);
 }
 
 function ropeStep(dt) {
@@ -447,20 +449,20 @@ function ropeStep(dt) {
   let dist = Math.hypot(dx, dy) || 0.001;
   const pulling = !!keys['KeyF'] || !!keys['KeyJ'];
   const target = pulling ? 110 : 330;
-  ropeRest += Math.max(-820 * dt, Math.min(700 * dt, target - ropeRest));
+  ropeRest += Math.max(-680 * dt, Math.min(480 * dt, target - ropeRest));
 
   if (dist > ropeRest) {
     const nx = dx / dist, ny = dy / dist;
     const stretch = dist - ropeRest;
     let w1 = 0.5, w2 = 0.5;
-    if (p1.grounded && !p2.grounded) { w1 = 0.12; w2 = 0.88; }
-    else if (p2.grounded && !p1.grounded) { w1 = 0.88; w2 = 0.12; }
-    let acc = Math.min(2600, stretch * 16);
+    if (p1.grounded && !p2.grounded) { w1 = 0.15; w2 = 0.85; }
+    else if (p2.grounded && !p1.grounded) { w1 = 0.85; w2 = 0.15; }
+    const acc = Math.min(1800, stretch * 10);
     p1.vx += nx * acc * w1 * dt; p1.vy += ny * acc * w1 * dt;
     p2.vx -= nx * acc * w2 * dt; p2.vy -= ny * acc * w2 * dt;
     const rel = (p2.vx - p1.vx) * nx + (p2.vy - p1.vy) * ny;
-    p1.vx += nx * rel * 0.25 * w1; p1.vy += ny * rel * 0.25 * w1;
-    p2.vx -= nx * rel * 0.25 * w2; p2.vy -= ny * rel * 0.25 * w2;
+    p1.vx += nx * rel * 0.18 * w1; p1.vy += ny * rel * 0.18 * w1;
+    p2.vx -= nx * rel * 0.18 * w2; p2.vy -= ny * rel * 0.18 * w2;
   }
   if (dist > 640) {
     const nx = dx / dist, ny = dy / dist, ex = dist - 640;
@@ -502,44 +504,85 @@ function updateVisuals(dt) {
     }
   });
 
-  // 绳子
-  if (ropeMesh) {
-    const N = ropeMesh.userData.N;
-    const a = { x: p1.x, y: p1.y + 115 };
-    const b = { x: p2.x, y: p2.y + 115 };
-    const dx = b.x - a.x, dy = b.y - a.y;
-    const dist = Math.hypot(dx, dy) || 1;
-    const slack = Math.max(0, 330 - dist);
-    const pulling = !!keys['KeyF'] || !!keys['KeyJ'];
-    ropeWidth += ((pulling ? 12 : 7.5) - ropeWidth) * Math.min(1, dt * 8);
-    ropeMesh.material.color.setHex(pulling ? 0xF2FFC8 : 0xC6F24E);
-    ropeMesh.material.opacity = 0.95;
+  updateRopeVisual(dt);
+}
 
-    const pts = [];
-    for (let i = 0; i < N; i++) {
-      const u = i / (N - 1);
-      pts.push({
-        x: a.x + dx * u,
-        y: a.y + dy * u - Math.sin(u * Math.PI) * Math.min(110, slack * 0.55)
-          + Math.sin(perf * 4 + u * 7) * 1.4 * Math.sin(u * Math.PI)
-      });
-    }
-    for (let i = 0; i < N; i++) {
-      const p0 = pts[Math.max(0, i - 1)], p2p = pts[Math.min(N - 1, i + 1)];
-      let tx = p2p.x - p0.x, ty = p2p.y - p0.y;
-      const tl = Math.hypot(tx, ty) || 1;
-      tx /= tl; ty /= tl;
-      const nx = -ty, ny = tx;
-      const o = i * 6;
-      ropePos[o] = pts[i].x + nx * ropeWidth / 2;
-      ropePos[o + 1] = pts[i].y + ny * ropeWidth / 2;
-      ropePos[o + 2] = 30;
-      ropePos[o + 3] = pts[i].x - nx * ropeWidth / 2;
-      ropePos[o + 4] = pts[i].y - ny * ropeWidth / 2;
-      ropePos[o + 5] = 30;
-    }
-    ropeMesh.geometry.attributes.position.needsUpdate = true;
+/* ---------------- 绳子视觉（Verlet 链） ---------------- */
+function updateRopeVisual(dt) {
+  if (!ropeMesh || ropePts.length !== ROPE_N) return;
+  const a = { x: p1.x, y: p1.y + 115 };
+  const b = { x: p2.x, y: p2.y + 115 };
+  const dx = b.x - a.x, dy = b.y - a.y;
+  const dist = Math.hypot(dx, dy) || 1;
+  const SEG = 340 / (ROPE_N - 1);
+  const step = Math.min(dt, 0.033);
+
+  ropePts[0].x = a.x; ropePts[0].y = a.y;
+  ropePts[ROPE_N - 1].x = b.x; ropePts[ROPE_N - 1].y = b.y;
+
+  // 积分：轻重力 + 阻尼，让绳子自然下垂
+  for (let i = 1; i < ROPE_N - 1; i++) {
+    const p = ropePts[i];
+    const vx = (p.x - p.px) * 0.985;
+    const vy = (p.y - p.py) * 0.985;
+    p.px = p.x; p.py = p.y;
+    p.x += vx;
+    p.y += vy - 1500 * step * step;
   }
+
+  // 距离约束：固定自然长度，近则下垂，远则绷直
+  for (let it = 0; it < 10; it++) {
+    for (let i = 0; i < ROPE_N - 1; i++) {
+      const p = ropePts[i], q = ropePts[i + 1];
+      const ddx = q.x - p.x, ddy = q.y - p.y;
+      const d = Math.hypot(ddx, ddy) || 0.001;
+      const diff = (d - SEG) / d * 0.5;
+      const ox = ddx * diff, oy = ddy * diff;
+      if (i !== 0) { p.x += ox; p.y += oy; }
+      if (i + 1 !== ROPE_N - 1) { q.x -= ox; q.y -= oy; }
+    }
+    ropePts[0].x = a.x; ropePts[0].y = a.y;
+    ropePts[ROPE_N - 1].x = b.x; ropePts[ROPE_N - 1].y = b.y;
+  }
+
+  const taut = dist > 340;
+  if (taut && !ropeTaut) ropeWobble = 1;
+  ropeTaut = taut;
+  ropeWobble *= Math.pow(0.015, step * 2);
+
+  const pulling = !!keys['KeyF'] || !!keys['KeyJ'];
+  const stretch = Math.max(0, dist - 340);
+  const baseW = (pulling ? 12.5 : 9.5) * (1 - Math.min(0.35, stretch / 900));
+
+  for (let i = 0; i < ROPE_N; i++) {
+    const p0 = ropePts[Math.max(0, i - 1)];
+    const p2p = ropePts[Math.min(ROPE_N - 1, i + 1)];
+    let tx = p2p.x - p0.x, ty = p2p.y - p0.y;
+    const tl = Math.hypot(tx, ty) || 1;
+    tx /= tl; ty /= tl;
+    const nx = -ty, ny = tx;
+    const u = i / (ROPE_N - 1);
+
+    // 绷紧时的颤动（只影响视觉，不影响物理）
+    const amp = taut
+      ? (1.2 + Math.min(6, stretch * 0.05)) * Math.sin(Math.PI * u) * (0.35 + ropeWobble)
+      : 0;
+    const wob = Math.sin(perf * 27 + i * 1.35) * amp;
+    const w = baseW * (0.72 + 0.28 * Math.sin(Math.PI * u));
+    const x = ropePts[i].x + nx * wob;
+    const y = ropePts[i].y + ny * wob;
+
+    const o = i * 6;
+    ropePos[o] = x + nx * w / 2;
+    ropePos[o + 1] = y + ny * w / 2;
+    ropePos[o + 2] = 30;
+    ropePos[o + 3] = x - nx * w / 2;
+    ropePos[o + 4] = y - ny * w / 2;
+    ropePos[o + 5] = 30;
+  }
+  ropeMesh.geometry.attributes.position.needsUpdate = true;
+  ropeMesh.material.color.setHex(pulling ? 0xF2FFC8 : 0xC6F24E);
+  ropeMesh.material.opacity = 0.95;
 }
 
 /* ---------------- 主循环 ---------------- */
