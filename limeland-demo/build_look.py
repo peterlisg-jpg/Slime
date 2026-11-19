@@ -17,6 +17,9 @@ bundle = (BUILD / 'look.js').read_text(encoding='utf-8').replace('</script', '<\
 html = (ROOT / 'look-3d.html').read_text(encoding='utf-8')
 
 font = base64.b64encode((ROOT / 'assets/fonts/zcool-ui.ttf').read_bytes()).decode()
+char_img = base64.b64encode((BUILD / 'green.png').read_bytes()).decode()
+html = html.replace('window.__LOOK_CHAR = "assets/green.png";',
+                    'window.__LOOK_CHAR = "data:image/png;base64,' + char_img + '";')
 html = html.replace('url("assets/fonts/zcool-ui.ttf") format("truetype")',
                     'url("data:font/ttf;base64,' + font + '") format("truetype")')
 html = html.replace('<script type="module" src="look-3d.js"></script>',
