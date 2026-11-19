@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>拉丝 · UI 方向稿 v3</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=ZCOOL+QingKe+HuangYou&family=Noto+Sans+SC:wght@500;700;900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#0A0518; --ink2:#140A2E; --panel:rgba(18,9,38,.82);
+    --lime:#C6F24E; --pink:#FF8FA8; --cyan:#57E0FF; --amber:#FFC94A; --purple:#7B3FA0;
+    --text:#F6F1FF; --muted:#9C90C4; --line:rgba(246,241,255,.12);
+    --display:"ZCOOL QingKe HuangYou","PingFang SC",sans-serif;
+    --sans:"Noto Sans SC","PingFang SC",sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:#06030D;color:var(--text);font-family:var(--sans);padding:48px 0 90px}
+  .head{max-width:1080px;margin:0 auto 26px;padding:0 24px}
+  .head h1{font-family:var(--display);font-size:24px;letter-spacing:1px;margin:0 0 8px;color:var(--lime)}
+  .head p{margin:0;color:var(--muted);font-size:12.5px;line-height:1.8}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 24px;display:flex;flex-direction:column;gap:36px}
+  .tag{font:700 10px/1 var(--sans);letter-spacing:.2em;color:var(--muted);margin-bottom:9px}
+  .tag b{color:var(--pink)}
+  .screen{position:relative;width:100%;aspect-ratio:16/9;border-radius:14px;overflow:hidden;
+    box-shadow:0 30px 80px rgba(0,0,0,.7),0 0 0 1px rgba(198,242,78,.10)}
+  .bg{position:absolute;inset:0;background:url(assets/glow_room.jpg) center/cover no-repeat;
+    filter:brightness(.52) saturate(1.05) blur(1px);transform:scale(1.04)}
+  .shade{position:absolute;inset:0;background:
+    linear-gradient(90deg,rgba(10,5,24,.88) 0%,rgba(10,5,24,.5) 48%,rgba(10,5,24,.34) 100%),
+    linear-gradient(180deg,rgba(10,5,24,.5) 0%,rgba(10,5,24,.1) 40%,rgba(10,5,24,.72) 100%)}
+  .s-hud .shade{background:
+    linear-gradient(180deg,rgba(10,5,24,.62) 0%,rgba(10,5,24,.06) 26%,rgba(10,5,24,.06) 70%,rgba(10,5,24,.66) 100%)}
+  .content{position:relative;height:100%;padding:5.5% 6%;display:flex;flex-direction:column}
+
+  /* 通用：游戏按钮 / 按键 */
+  .btn{display:inline-flex;align-items:center;gap:10px;padding:13px 24px;border-radius:11px;
+    background:var(--lime);color:#170A2E;font:900 15px/1 var(--sans);letter-spacing:.06em;
+    box-shadow:0 5px 0 #7FA32E,0 12px 34px rgba(198,242,78,.22);border:0;cursor:pointer}
+  .btn.pink{background:var(--pink);box-shadow:0 5px 0 #B0506A,0 12px 34px rgba(255,143,168,.2)}
+  kbd{display:inline-flex;align-items:center;justify-content:center;min-width:26px;height:26px;padding:0 7px;
+    border-radius:6px;background:rgba(246,241,255,.1);border:1px solid rgba(246,241,255,.18);
+    border-bottom-width:3px;font:700 11px/1 var(--sans);color:var(--text)}
+
+  /* 标题 */
+  .logo{font-family:var(--display);font-size:clamp(78px,12vw,152px);line-height:.92;letter-spacing:.02em;
+    color:var(--lime);text-shadow:5px 5px 0 var(--purple),0 0 46px rgba(198,242,78,.3)}
+  .logo-sub{margin-top:12px;font:900 12px/1 var(--sans);letter-spacing:.42em;color:var(--pink)}
+  .tagline{margin-top:auto;font:700 clamp(14px,1.7vw,19px)/1.6 var(--sans);letter-spacing:.04em;color:rgba(246,241,255,.9)}
+  .tagline em{display:inline-block;margin-left:14px;padding:5px 10px;border-radius:6px;font-style:normal;
+    font:700 10px/1 var(--sans);letter-spacing:.12em;color:var(--ink);background:var(--cyan)}
+  .cta{margin-top:16px;display:flex;align-items:center;gap:14px}
+  .cta small{font:700 10px/1 var(--sans);letter-spacing:.16em;color:var(--muted)}
+
+  /* HUD 顶栏 */
+  .hud{display:flex;justify-content:space-between;align-items:flex-start;gap:18px}
+  .lv{display:flex;align-items:center;gap:10px}
+  .lv .num{display:flex;align-items:center;justify-content:center;width:38px;height:38px;border-radius:9px;
+    background:var(--lime);color:#160A2C;font-family:var(--display);font-size:24px;
+    box-shadow:0 3px 0 #7FA32E}
+  .lv .txt{font-family:var(--display);font-size:20px;letter-spacing:.06em;line-height:1.1}
+  .lv .txt small{display:block;font:700 9px/1 var(--sans);letter-spacing:.22em;color:var(--muted);margin-bottom:5px}
+  .hearts{display:flex;gap:5px;margin-top:11px}
+  .hearts svg{width:20px;height:20px;color:var(--pink);filter:drop-shadow(0 0 8px rgba(255,143,168,.45))}
+  .hearts svg.off{color:rgba(255,143,168,.22);filter:none}
+
+  /* 中上：关卡进度 */
+  .progress{flex:1;max-width:330px;margin:6px 10px 0}
+  .progress .lab{display:flex;justify-content:space-between;font:700 9px/1 var(--sans);
+    letter-spacing:.2em;color:var(--muted);margin-bottom:7px}
+  .bar{position:relative;height:12px;border-radius:6px;background:rgba(246,241,255,.1);
+    box-shadow:inset 0 1px 0 rgba(0,0,0,.35)}
+  .bar i{position:absolute;left:0;top:0;bottom:0;width:46%;border-radius:6px;
+    background:linear-gradient(90deg,#9BD62E,var(--lime));box-shadow:0 0 16px rgba(198,242,78,.4)}
+  .bar i::after{content:"";position:absolute;right:-2px;top:-3px;width:18px;height:18px;border-radius:50%;
+    background:var(--lime);box-shadow:0 0 18px rgba(198,242,78,.8)}
+  .progress .foot{display:flex;justify-content:space-between;margin-top:6px;font:700 9px/1 var(--sans);
+    letter-spacing:.12em;color:var(--muted)}
+  .progress .foot b{color:var(--pink)}
+
+  /* 右上：环形计时 + 披萨 */
+  .right{display:flex;flex-direction:column;align-items:flex-end;gap:9px}
+  .ring{position:relative;width:84px;height:84px}
+  .ring svg{transform:rotate(-90deg)}
+  .ring .n{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    font-family:var(--display);font-size:27px;color:var(--text)}
+  .pizzas{display:flex;align-items:center;gap:7px}
+  .pizzas svg{width:19px;height:19px;color:var(--amber);filter:drop-shadow(0 0 8px rgba(255,201,74,.4))}
+  .pizzas svg.off{color:rgba(246,241,255,.16);filter:none}
+  .pizzas span{font:700 10px/1 var(--sans);letter-spacing:.1em;color:var(--muted);margin-left:3px}
+
+  /* 底部：张力条 + 按键 */
+  .bottom{margin-top:auto;display:flex;align-items:flex-end;justify-content:space-between;gap:20px}
+  .tension{width:300px}
+  .tension .lab{display:flex;justify-content:space-between;font:700 9px/1 var(--sans);
+    letter-spacing:.2em;color:var(--muted);margin-bottom:7px}
+  .tension .lab b{color:var(--lime)}
+  .segs{display:flex;gap:4px}
+  .segs i{flex:1;height:13px;border-radius:3px;background:rgba(246,241,255,.1);
+    box-shadow:inset 0 1px 0 rgba(0,0,0,.35)}
+  .segs i.on{background:var(--lime);box-shadow:0 0 14px rgba(198,242,78,.55)}
+  .segs i.hot{background:var(--amber);box-shadow:0 0 16px rgba(255,201,74,.7)}
+  .keys{display:flex;align-items:center;gap:8px;font:700 9px/1 var(--sans);letter-spacing:.14em;color:var(--muted)}
+  .keys .grp{display:flex;align-items:center;gap:4px}
+  .toast{align-self:flex-start;margin-top:auto;margin-bottom:14px;display:flex;align-items:center;gap:10px;
+    padding:8px 14px;border-radius:8px;background:rgba(12,6,28,.82);border-left:3px solid var(--lime);
+    font:700 12px/1 var(--sans);letter-spacing:.06em;color:#E9FFB0}
+
+  /* 暂停 */
+  .pausebox{width:min(380px,72%);padding:26px 28px;border-radius:16px;background:var(--panel);
+    border-top:3px solid var(--lime);box-shadow:0 24px 60px rgba(0,0,0,.6)}
+  .pausebox h2{font-family:var(--display);font-size:40px;letter-spacing:.1em;margin:0 0 18px;color:var(--lime)}
+  .pausebox .row{display:flex;align-items:center;gap:12px;padding:11px 10px;border-radius:8px;
+    font:700 14px/1 var(--sans);letter-spacing:.08em;color:var(--muted)}
+  .pausebox .row.on{background:rgba(198,242,78,.12);color:var(--text)}
+  .pausebox .row.on::before{content:"";width:3px;height:16px;border-radius:2px;background:var(--lime)}
+  .pausebox .row em{font-style:normal;font:700 10px/1 var(--sans);letter-spacing:.14em;color:var(--muted)}
+  .pausebox .row.on em{color:var(--lime)}
+
+  /* 结算 */
+  .res{display:flex;align-items:center;gap:6%;margin-top:2%}
+  .rank{text-align:center}
+  .rank small{font:700 10px/1 var(--sans);letter-spacing:.3em;color:var(--muted)}
+  .rank b{display:block;font-family:var(--display);font-size:clamp(100px,15vw,180px);line-height:1;
+    color:var(--lime);text-shadow:6px 6px 0 var(--purple),0 0 60px rgba(198,242,78,.35);margin-top:4px}
+  .info{flex:1}
+  .stars{display:flex;gap:6px}
+  .stars svg{width:26px;height:26px;color:var(--amber);filter:drop-shadow(0 0 10px rgba(255,201,74,.5))}
+  .stars svg.off{color:rgba(246,241,255,.16);filter:none}
+  .rtitle{font-family:var(--display);font-size:clamp(26px,3.4vw,40px);letter-spacing:.08em;margin:12px 0 18px}
+  .statgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;max-width:430px}
+  .statgrid div{background:rgba(12,6,28,.6);border-radius:9px;padding:10px 12px;border-top:2px solid var(--lime)}
+  .statgrid small{font:700 9px/1 var(--sans);letter-spacing:.18em;color:var(--muted)}
+  .statgrid b{display:block;margin-top:7px;font-family:var(--display);font-size:22px;letter-spacing:.04em}
+  .best{display:inline-flex;align-items:center;gap:8px;margin-top:16px;padding:6px 11px;border-radius:6px;
+    background:rgba(255,201,74,.14);font:700 10px/1 var(--sans);letter-spacing:.16em;color:var(--amber)}
+  .rcta{margin-top:auto;display:flex;align-items:center;gap:16px}
+  .rcta small{font:700 10px/1 var(--sans);letter-spacing:.14em;color:var(--muted)}
+</style>
+</head>
+<body>
+  <div class="head">
+    <h1>拉丝 · UI 方向稿 v3「游戏感」</h1>
+    <p>字体换成游戏字（ZCOOL 庆科黄油体）；配色回到莱姆尼社的莱姆绿 / 粉 / 青 / 琥珀 / 深靛紫；补上生命、关卡进度、环形计时、分段张力条和按键提示。</p>
+  </div>
+
+  <div class="wrap">
+
+    <div>
+      <div class="tag"><b>01</b> 标题 · 游戏字标</div>
+      <div class="screen s-title">
+        <div class="bg"></div><div class="shade"></div>
+        <div class="content">
+          <div class="logo">拉丝</div>
+          <div class="logo-sub">L I M E L A N D</div>
+          <div class="tagline">两个史莱姆，一根绳，一整家店<em>第 1 关 · 夜光画室</em></div>
+          <div class="cta">
+            <button class="btn">按空格开始</button>
+            <small>2P CO-OP · 60 SEC</small>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="tag"><b>02</b> 游戏内 HUD · 生命 / 进度 / 计时 / 张力</div>
+      <div class="screen s-hud">
+        <div class="bg"></div><div class="shade"></div>
+        <div class="content">
+          <div class="hud">
+            <div>
+              <div class="lv">
+                <div class="num">01</div>
+                <div class="txt"><small>LEVEL</small>夜光画室</div>
+              </div>
+              <div class="hearts">
+                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 21c-4.6-3.4-8-6.2-8-10a5 5 0 0 1 9-3 5 5 0 0 1 9 3c0 3.8-3.4 6.6-8 10z"/></svg>
+                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 21c-4.6-3.4-8-6.2-8-10a5 5 0 0 1 9-3 5 5 0 0 1 9 3c0 3.8-3.4 6.6-8 10z"/></svg>
+                <svg class="off" viewBox="0 0 24 24" fill="currentColor"><path d="M12 21c-4.6-3.4-8-6.2-8-10a5 5 0 0 1 9-3 5 5 0 0 1 9 3c0 3.8-3.4 6.6-8 10z"/></svg>
+              </div>
+            </div>
+
+            <div class="progress">
+              <div class="lab"><span>距离终点</span><span>46%</span></div>
+              <div class="bar"><i></i></div>
+              <div class="foot"><span>前厅</span><span><b>×</b> 卷帘门</span></div>
+            </div>
+
+            <div class="right">
+              <div class="ring">
+                <svg width="84" height="84" viewBox="0 0 84 84">
+                  <circle cx="42" cy="42" r="36" fill="none" stroke="rgba(246,241,255,.12)" stroke-width="6"/>
+                  <circle cx="42" cy="42" r="36" fill="none" stroke="#C6F24E" stroke-width="6" stroke-linecap="round"
+                    stroke-dasharray="226" stroke-dashoffset="96"/>
+                </svg>
+                <div class="n">42.6</div>
+              </div>
+              <div class="pizzas">
+                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2 22 20H2L12 2z"/><circle cx="12" cy="14" r="1.8" fill="#140A2E"/></svg>
+                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2 22 20H2L12 2z"/><circle cx="12" cy="14" r="1.8" fill="#140A2E"/></svg>
+                <svg class="off" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2 22 20H2L12 2z"/></svg>
+                <span>2 / 3</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="toast"><b>F / J</b> 按住拉绳，把队友拽过来</div>
+
+          <div class="bottom">
+            <div class="tension">
+              <div class="lab"><span>绳子张力</span><b>满格可甩出</b></div>
+              <div class="segs">
+                <i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i>
+                <i class="on"></i><i class="on"></i><i class="hot"></i><i></i><i></i>
+              </div>
+            </div>
+            <div class="keys">
+              <div class="grp"><kbd>A</kbd><kbd>D</kbd>移动</div>
+              <div class="grp"><kbd>W</kbd>跳</div>
+              <div class="grp"><kbd>F</kbd>拉绳</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="tag"><b>03</b> 暂停 · 面板 + 选中条</div>
+      <div class="screen s-pause">
+        <div class="bg"></div><div class="shade"></div>
+        <div class="content" style="justify-content:center;align-items:flex-start">
+          <div class="pausebox">
+            <h2>暂停</h2>
+            <div class="row on"><em>01</em>继续游戏</div>
+            <div class="row"><em>02</em>重开这一关</div>
+            <div class="row"><em>03</em>音量</div>
+            <div class="row"><em>04</em>回标题</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="tag"><b>04</b> 结算 · 评级 + 数据卡</div>
+      <div class="screen s-result">
+        <div class="bg"></div><div class="shade"></div>
+        <div class="content">
+          <div class="res">
+            <div class="rank"><small>RANK</small><b>A</b></div>
+            <div class="info">
+              <div class="stars">
+                <svg viewBox="0 0 24 24" fill="currentColor"><path d="m12 2 3 6.6 7 .9-5.1 4.8 1.3 7L12 18l-6.2 3.3 1.3-7L2 9.5l7-.9L12 2z"/></svg>
+                <svg viewBox="0 0 24 24" fill="currentColor"><path d="m12 2 3 6.6 7 .9-5.1 4.8 1.3 7L12 18l-6.2 3.3 1.3-7L2 9.5l7-.9L12 2z"/></svg>
+                <svg class="off" viewBox="0 0 24 24" fill="currentColor"><path d="m12 2 3 6.6 7 .9-5.1 4.8 1.3 7L12 18l-6.2 3.3 1.3-7L2 9.5l7-.9L12 2z"/></svg>
+              </div>
+              <div class="rtitle">逃出来了</div>
+              <div class="statgrid">
+                <div><small>用时</small><b>42.3s</b></div>
+                <div><small>披萨</small><b>2 / 3</b></div>
+                <div><small>掉坑</small><b>0</b></div>
+              </div>
+              <div class="best">NEW BEST · 42.3s</div>
+            </div>
+          </div>
+          <div class="rcta">
+            <button class="btn">R 再来一局</button>
+            <small>ESC 回标题</small>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</body>
+</html>
