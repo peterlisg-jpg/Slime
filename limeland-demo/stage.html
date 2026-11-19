@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>拉丝 · 视觉重构样片</title>
+<style>
+  html,body{margin:0;height:100%;background:#08020F;overflow:hidden;
+    font-family:"PingFang SC","Noto Sans SC","Microsoft YaHei",system-ui,sans-serif;color:#EFE8FF;}
+  .app{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;}
+  .frame{position:relative;border-radius:20px;overflow:hidden;
+    box-shadow:0 30px 90px rgba(0,0,0,.75),0 0 0 1px rgba(198,242,78,.12),0 0 70px rgba(120,60,220,.18);}
+  .frame canvas{display:block;width:100%;height:100%;}
+  .hud{position:absolute;inset:0;pointer-events:none;}
+  .brand{position:absolute;left:26px;top:22px;display:flex;align-items:baseline;gap:10px;}
+  .brand b{font-size:20px;letter-spacing:1px;color:#E9FFB0;text-shadow:0 0 18px rgba(198,242,78,.45);}
+  .brand span{font-size:11px;letter-spacing:3px;color:rgba(255,255,255,.5);}
+  .modeTag{position:absolute;right:26px;top:24px;font-size:12px;letter-spacing:1px;color:rgba(255,255,255,.5);}
+  .modeTag b{color:#C6F24E;font-weight:600;}
+  .bar{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:8px 12px;
+    padding:9px 16px;border-radius:999px;background:rgba(255,255,255,.045);
+    border:1px solid rgba(255,255,255,.09);backdrop-filter:blur(8px);max-width:96vw;}
+  button{border:1px solid rgba(198,242,78,.22);background:rgba(198,242,78,.05);color:#DDE9C0;
+    padding:7px 15px;border-radius:999px;font-size:13px;font-weight:600;cursor:pointer;
+    transition:all .16s;font-family:inherit;letter-spacing:.5px;}
+  button:hover{background:rgba(198,242,78,.13);transform:translateY(-1px);}
+  button.on{background:#C6F24E;color:#1B0A3C;border-color:#C6F24E;box-shadow:0 0 22px rgba(198,242,78,.4);}
+  label{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:#A99BD0;cursor:pointer;}
+  input[type=range]{width:86px;accent-color:#C6F24E;}
+  input[type=checkbox]{accent-color:#C6F24E;}
+  .note{font-size:11.5px;color:#6F5F99;letter-spacing:.5px;}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="frame" id="frame">
+    <canvas id="scene"></canvas>
+    <div class="hud">
+      <div class="brand"><b>拉丝</b><span>LIMELAND · 视觉样片</span></div>
+      <div class="modeTag">动作 <b id="modeTag">待机</b></div>
+    </div>
+  </div>
+  <div class="bar">
+    <button data-m="idle" class="on">待机</button>
+    <button data-m="grab">抓钩</button>
+    <button data-m="pull">拉人</button>
+    <button data-m="fling">甩出</button>
+    <button data-m="land">落地</button>
+    <button data-m="dizzy">撞晕</button>
+    <label><input type="checkbox" id="auto" checked> 自动</label>
+    <label><input type="checkbox" id="showBones"> 骨骼</label>
+    <label>软度 <input type="range" id="soft" min="0" max="100" value="55"></label>
+    <span class="note">共享边界网格 · 无撕裂</span>
+  </div>
+</div>
+<script src="stage.js"></script>
+</body>
+</html>
