@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>拉丝 · 夜光画室 60 秒</title>
+<style>
+  :root{
+    --lime:#C6F24E; --pink:#FF8FA8; --cyan:#57E0FF; --ink:#07020f;
+    --muted:#8d7fb0;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:radial-gradient(900px 600px at 50% 20%,#150a2c 0%,#06010d 70%);
+    display:flex;align-items:center;justify-content:center;overflow:hidden;
+    font-family:"PingFang SC","Noto Sans SC","Microsoft YaHei",system-ui,sans-serif;color:#efe8ff;}
+  #app{position:relative;width:min(96vw,calc(94vh * 16 / 9));aspect-ratio:16/9;
+    border-radius:20px;overflow:hidden;background:#05010c;
+    box-shadow:0 30px 100px rgba(0,0,0,.8),0 0 0 1px rgba(198,242,78,.10),0 0 90px rgba(120,60,220,.16);}
+  #stage{position:absolute;inset:0}
+  #stage canvas{display:block;width:100%!important;height:100%!important}
+  .vignette{position:absolute;inset:0;pointer-events:none;
+    background:radial-gradient(120% 90% at 50% 45%,rgba(0,0,0,0) 45%,rgba(3,0,10,.55) 78%,rgba(3,0,10,.9) 100%)}
+  .grain{position:absolute;inset:0;pointer-events:none;opacity:.05;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/></filter><rect width='120' height='120' filter='url(%23n)' opacity='.6'/></svg>")}
+  .hud{position:absolute;inset:0;pointer-events:none;padding:22px 26px;display:flex;justify-content:space-between;align-items:flex-start}
+  .title{font-size:20px;font-weight:800;letter-spacing:1px;color:#E9FFB0;text-shadow:0 0 20px rgba(198,242,78,.5)}
+  .title span{display:block;margin-top:2px;font-size:10.5px;font-weight:500;letter-spacing:2.5px;color:rgba(255,255,255,.45)}
+  .right{text-align:right}
+  .timer{font:700 34px/1 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:1px;color:#fff;text-shadow:0 0 24px rgba(255,255,255,.3)}
+  .timer.warn{color:#FF8FA8;text-shadow:0 0 24px rgba(255,143,168,.6)}
+  .hint{margin-top:6px;font-size:11px;letter-spacing:.5px;color:rgba(255,255,255,.42)}
+  .overlay{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:12px;background:rgba(4,1,12,.72);backdrop-filter:blur(6px);transition:opacity .35s;pointer-events:auto}
+  .overlay.hidden{opacity:0;pointer-events:none}
+  .overlay h1{margin:0;font-size:64px;font-weight:900;letter-spacing:4px;color:var(--lime);
+    text-shadow:0 0 34px rgba(198,242,78,.55),0 0 80px rgba(198,242,78,.25)}
+  .overlay h2{margin:0;font-size:30px;font-weight:800;color:#fff}
+  .overlay p{margin:0;font-size:14px;letter-spacing:3px;color:var(--muted)}
+  .keys{display:flex;gap:26px;margin:10px 0 4px;flex-wrap:wrap;justify-content:center}
+  .keys div{font-size:12px;color:rgba(255,255,255,.55);letter-spacing:.5px}
+  .keys b{display:inline-block;min-width:26px;padding:4px 7px;margin:0 2px;border-radius:6px;
+    background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);color:#fff;font:600 12px/1.2 ui-monospace,monospace;text-align:center}
+  .go{margin-top:10px;padding:11px 26px;border-radius:999px;background:var(--lime);color:#16082f;
+    font-weight:800;font-size:14px;letter-spacing:2px;border:0;cursor:pointer;box-shadow:0 0 30px rgba(198,242,78,.35)}
+  .go:hover{transform:translateY(-1px)}
+  .stat{margin-top:2px;font:600 13px/1.6 ui-monospace,monospace;color:rgba(255,255,255,.6)}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="stage"></div>
+  <div class="vignette"></div>
+  <div class="grain"></div>
+
+  <div class="hud">
+    <div class="title">拉丝<span>夜光画室 · 60 秒</span></div>
+    <div class="right">
+      <div class="timer" id="timer">60.0</div>
+      <div class="hint">A/D · W · F　｜　←/→ · ↑ · J</div>
+    </div>
+  </div>
+
+  <div class="overlay" id="start">
+    <h1>拉丝</h1>
+    <p>夜光画室 · 60 秒 · 双人</p>
+    <div class="keys">
+      <div><b>A</b><b>D</b> 移动　<b>W</b> 跳　<b>F</b> 拉绳</div>
+      <div><b>←</b><b>→</b> 移动　<b>↑</b> 跳　<b>J</b> 拉绳</div>
+    </div>
+    <button class="go" id="go">空格开始</button>
+  </div>
+
+  <div class="overlay hidden" id="end">
+    <h2 id="endTitle">逃出来了</h2>
+    <div class="stat" id="endStat"></div>
+    <button class="go" id="again">R 再来一局</button>
+  </div>
+</div>
+
+<script>
+  window.addEventListener('error', function (e) {
+    var box = document.createElement('div');
+    box.style.cssText = 'position:fixed;left:12px;bottom:12px;max-width:70vw;padding:10px 14px;border-radius:8px;background:rgba(120,10,30,.92);color:#ffd7e0;font:12px/1.5 ui-monospace,monospace;z-index:9999;white-space:pre-wrap';
+    box.textContent = '出错：' + (e.message || e.type);
+    document.body.appendChild(box);
+  });
+</script>
+<script type="importmap">
+{
+  "imports": {
+    "three": "./lib/three.module.js",
+    "three/addons/": "./lib/addons/"
+  }
+}
+</script>
+<script type="module" src="three-demo.js"></script>
+</body>
+</html>
