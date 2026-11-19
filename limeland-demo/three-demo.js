@@ -17,7 +17,13 @@ const startEl = document.getElementById('start');
 const endEl = document.getElementById('end');
 const toastEl = document.getElementById('toast');
 const tensionEl = document.getElementById('tension');
-const tensionFill = tensionEl.querySelector('i');
+const heartsEl = document.getElementById('hearts');
+const progFill = document.getElementById('progFill');
+const progPct = document.getElementById('progPct');
+const ringFg = document.getElementById('ringFg');
+const segsEl = document.getElementById('segs');
+const tensionHint = document.getElementById('tensionHint');
+const pizzaIcons = document.querySelectorAll('#pizzas .pz');
 const debugEl = document.getElementById('debug');
 const fpsEl = document.getElementById('fps');
 const levelCardEl = document.getElementById('levelCard');
@@ -189,7 +195,7 @@ const EXIT_X = 3940;
 
 const state = {
   started: false, over: false, win: false,
-  time: 60, camX: -200, camY: 320, falls: 0, pizza: 0, shake: 0
+  time: 60, camX: -200, camY: 320, falls: 0, pizza: 0, shake: 0, lives: 3
 };
 const checkpoint = { x: -180, y: 0 };
 const p1 = { x: -380, y: 0, vx: 0, vy: 0, grounded: false, squash: 0, jumpQueued: false, hit: 0 };
@@ -466,7 +472,14 @@ function buildHazard() {
 }
 
 function updatePizzaHUD() {
-  pizzaEl.innerHTML = '披萨 <b>' + state.pizza + '</b> / 3';
+  pizzaEl.textContent = state.pizza + ' / 3';
+  for (let i = 0; i < pizzaIcons.length; i++) {
+    pizzaIcons[i].classList.toggle('off', i >= state.pizza);
+  }
+}
+function updateHearts() {
+  const hs = heartsEl.querySelectorAll('svg');
+  for (let i = 0; i < hs.length; i++) hs[i].classList.toggle('off', i >= state.lives);
 }
 function toast(text, d) {
   toastEl.textContent = text;
@@ -698,7 +711,7 @@ function resetGame() {
   ropeRest = 330;
   initRope();
   state.time = 60; state.over = false; state.win = false; state.falls = 0;
-  state.pizza = 0; state.shake = 0;
+  state.pizza = 0; state.shake = 0; state.lives = 3;
   flingTutorial = false;
   toastT = 0;
   toastEl.style.opacity = 0;
@@ -707,10 +720,14 @@ function resetGame() {
   });
   hazard.ang = 0;
   updatePizzaHUD();
+  updateHearts();
   timerEl.textContent = '60.0';
   timerEl.classList.remove('warn');
-  tensionFill.style.width = '0%';
-  tensionEl.classList.remove('hot');
+  ringFg.style.strokeDashoffset = '0';
+  progFill.style.width = '0%';
+  progPct.textContent = '0%';
+  for (let i = 0; i < segsEl.children.length; i++) segsEl.children[i].className = '';
+  tensionHint.textContent = '保持松绳';
   state.camX = -200; state.camY = 320;
   endEl.classList.add('hidden');
 }
@@ -763,11 +780,12 @@ function toTitle() {
   stopMusic();
   if (AC && AC.state === 'suspended') AC.resume();
 }
-function endGame(win) {
+function endGame(win, reason) {
   screen = 'result';
   state.over = true;
   state.win = win;
-  document.getElementById('endTitle').textContent = win ? '逃出来了' : '时间到';
+  document.getElementById('endTitle').textContent =
+    win ? '逃出来了' : reason === 'lives' ? '心用完了' : '时间到';
   let stars = 0;
   if (win) {
     stars = 1;
@@ -790,10 +808,13 @@ function endGame(win) {
     ? (newBest ? 'NEW BEST · ' + elapsed.toFixed(1) + 's' : '最好成绩 ' + (best || elapsed).toFixed(1) + 's')
     : '';
 
-  endStarsEl.textContent = '★'.repeat(stars) + '☆'.repeat(3 - stars);
-  document.getElementById('endStat').textContent = win
-    ? '剩余 ' + state.time.toFixed(1) + ' 秒 · 披萨 ' + state.pizza + '/3 · 掉下去 ' + state.falls + ' 次'
-    : '差一点 · 披萨 ' + state.pizza + '/3 · 掉下去 ' + state.falls + ' 次';
+  const starEls = endStarsEl.querySelectorAll('svg');
+  for (let i = 0; i < starEls.length; i++) starEls[i].classList.toggle('off', i >= stars);
+
+  document.getElementById('endStat').innerHTML =
+    '<div><small>用时</small><b>' + elapsed.toFixed(1) + 's</b></div>' +
+    '<div><small>披萨</small><b>' + state.pizza + ' / 3</b></div>' +
+    '<div><small>掉坑</small><b>' + state.falls + '</b></div>';
   endEl.classList.remove('hidden');
   if (win) {
     beep(660, 0.2, 'triangle', 0.05);
@@ -814,6 +835,11 @@ function respawn(p) {
   state.falls++;
   log('fall', { x: Math.round(p.x) });
   beep(140, 0.2, 'sawtooth', 0.04);
+  state.lives--;
+  updateHearts();
+  hitFlashT = 0.35;
+  if (state.lives > 0) toast('掉下去了 · 还剩 ' + state.lives + ' 颗心', 1.6);
+  if (state.lives <= 0) endGame(false, 'lives');
 }
 
 function step(dt) {
@@ -883,6 +909,7 @@ function step(dt) {
         pz.glow.visible = false;
         state.pizza++;
         updatePizzaHUD();
+        if (state.lives < 3) { state.lives++; updateHearts(); }
         log('pizza', { n: state.pizza });
         beep(900, 0.16, 'triangle', 0.05);
         ring(pz.x, pz.y, 0xFFC94A);
@@ -1122,11 +1149,21 @@ function loop(now) {
 
     timerEl.textContent = state.time.toFixed(1);
     timerEl.classList.toggle('warn', state.time < 10);
+    ringFg.style.strokeDashoffset = String(220 * (1 - state.time / 60));
 
     const rd = Math.hypot(p1.x - p2.x, p1.y - p2.y);
     const tension = Math.max(0, Math.min(1, (rd - TUNE.ropeRest) / (TUNE.ropeMax - TUNE.ropeRest)));
-    tensionFill.style.width = (tension * 100).toFixed(0) + '%';
-    tensionEl.classList.toggle('hot', tension > 0.12);
+    const segN = Math.round(tension * 10);
+    for (let i = 0; i < segsEl.children.length; i++) {
+      const s = segsEl.children[i];
+      s.classList.toggle('on', i < segN);
+      s.classList.toggle('hot', i >= 7 && i < segN && tension > 0.78);
+    }
+    tensionHint.textContent = tension > 0.78 ? '满格可甩出' : tension > 0.3 ? '正在拉紧' : '保持松绳';
+
+    const prog = Math.max(0, Math.min(1, (Math.min(p1.x, p2.x) + 380) / (EXIT_X + 380)));
+    progFill.style.width = (prog * 100).toFixed(0) + '%';
+    progPct.textContent = Math.round(prog * 100) + '%';
 
     if (!tut.pull && p1.x > 150 && p2.x > 150) {
       tut.pull = true;

@@ -3,86 +3,175 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>拉丝 · 夜光画室 60 秒</title>
+<title>拉丝 · 夜光画室</title>
 <style>
+  @font-face{
+    font-family:"ZCOOL";
+    src:url("assets/fonts/zcool-ui.ttf") format("truetype");
+    font-weight:400;font-display:swap;
+  }
   :root{
-    --lime:#C6F24E; --pink:#FF8FA8; --cyan:#57E0FF; --ink:#07020f;
-    --muted:#8d7fb0;
+    --lime:#C6F24E; --pink:#FF8FA8; --cyan:#57E0FF; --amber:#FFC94A; --purple:#7B3FA0;
+    --ink:#0A0518; --text:#F6F1FF; --muted:#9C90C4; --line:rgba(246,241,255,.12);
+    --display:"ZCOOL","PingFang SC",sans-serif;
+    --sans:"PingFang SC","Noto Sans SC","Microsoft YaHei",system-ui,sans-serif;
   }
   *{box-sizing:border-box}
-  html,body{margin:0;height:100%;background:radial-gradient(900px 600px at 50% 20%,#150a2c 0%,#06010d 70%);
-    display:flex;align-items:center;justify-content:center;overflow:hidden;
-    font-family:"PingFang SC","Noto Sans SC","Microsoft YaHei",system-ui,sans-serif;color:#efe8ff;}
+  html,body{margin:0;height:100%;background:radial-gradient(900px 600px at 50% 18%,#150a2c 0%,#06010d 70%);
+    display:flex;align-items:center;justify-content:center;overflow:hidden;font-family:var(--sans);color:var(--text)}
   #app{position:relative;width:min(96vw,calc(94vh * 16 / 9));aspect-ratio:16/9;
     border-radius:20px;overflow:hidden;background:#05010c;
-    box-shadow:0 30px 100px rgba(0,0,0,.8),0 0 0 1px rgba(198,242,78,.10),0 0 90px rgba(120,60,220,.16);}
+    box-shadow:0 30px 100px rgba(0,0,0,.8),0 0 0 1px rgba(198,242,78,.12),0 0 90px rgba(120,60,220,.18)}
   #stage{position:absolute;inset:0}
   #stage canvas{display:block;width:100%!important;height:100%!important}
   .vignette{position:absolute;inset:0;pointer-events:none;
     background:radial-gradient(120% 90% at 50% 45%,rgba(0,0,0,0) 45%,rgba(3,0,10,.55) 78%,rgba(3,0,10,.9) 100%)}
   .grain{position:absolute;inset:0;pointer-events:none;opacity:.05;
     background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/></filter><rect width='120' height='120' filter='url(%23n)' opacity='.6'/></svg>")}
-  .hud{position:absolute;inset:0;pointer-events:none;padding:22px 26px;display:flex;justify-content:space-between;align-items:flex-start}
-  .title{font-size:20px;font-weight:800;letter-spacing:1px;color:#E9FFB0;text-shadow:0 0 20px rgba(198,242,78,.5)}
-  .title span{display:block;margin-top:2px;font-size:10.5px;font-weight:500;letter-spacing:2.5px;color:rgba(255,255,255,.45)}
-  .right{text-align:right}
-  .timer{font:700 34px/1 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:1px;color:#fff;text-shadow:0 0 24px rgba(255,255,255,.3)}
-  .timer.warn{color:#FF8FA8;text-shadow:0 0 24px rgba(255,143,168,.6)}
-  .pizza{margin-top:8px;font:600 13px/1.4 ui-monospace,monospace;letter-spacing:1px;color:rgba(255,255,255,.55)}
-  .pizza b{color:#FFC94A}
-  .stars{margin-top:4px;font-size:26px;letter-spacing:6px;color:#FFC94A;text-shadow:0 0 24px rgba(255,201,74,.5)}
-  .hint{margin-top:6px;font-size:11px;letter-spacing:.5px;color:rgba(255,255,255,.42)}
-  .overlay{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
-    gap:12px;background:rgba(4,1,12,.72);backdrop-filter:blur(6px);transition:opacity .35s;pointer-events:auto}
+  .hitflash{position:absolute;inset:0;pointer-events:none;opacity:0;transition:opacity .12s;
+    background:radial-gradient(120% 90% at 50% 50%,rgba(255,60,110,0) 40%,rgba(255,40,90,.55) 100%)}
+
+  /* ---------- HUD ---------- */
+  .hud{position:absolute;inset:0;pointer-events:none;padding:22px 26px;display:flex;
+    justify-content:space-between;align-items:flex-start;gap:18px}
+  .hud-left{display:flex;flex-direction:column;gap:10px}
+  .lv{display:flex;align-items:center;gap:10px}
+  .lv .num{display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:9px;
+    background:var(--lime);color:#160A2C;font-family:var(--display);font-size:23px;box-shadow:0 3px 0 #7FA32E}
+  .lv .txt{font-family:var(--display);font-size:19px;letter-spacing:.06em;line-height:1.1;color:var(--text)}
+  .lv .txt small{display:block;font:700 8.5px/1 var(--sans);letter-spacing:.22em;color:var(--muted);margin-bottom:4px}
+  .hearts{display:flex;gap:5px}
+  .hearts svg{width:19px;height:19px;color:var(--pink);filter:drop-shadow(0 0 8px rgba(255,143,168,.45));transition:.2s}
+  .hearts svg.off{color:rgba(255,143,168,.2);filter:none;transform:scale(.86)}
+
+  .progress{flex:1;max-width:330px;margin:5px 8px 0}
+  .progress .lab{display:flex;justify-content:space-between;font:700 8.5px/1 var(--sans);
+    letter-spacing:.2em;color:var(--muted);margin-bottom:6px}
+  .bar{position:relative;height:11px;border-radius:6px;background:rgba(246,241,255,.1);box-shadow:inset 0 1px 0 rgba(0,0,0,.4)}
+  .bar i{position:absolute;left:0;top:0;bottom:0;width:0;border-radius:6px;
+    background:linear-gradient(90deg,#9BD62E,var(--lime));box-shadow:0 0 16px rgba(198,242,78,.4);transition:width .2s}
+  .bar i::after{content:"";position:absolute;right:-2px;top:-3px;width:17px;height:17px;border-radius:50%;
+    background:var(--lime);box-shadow:0 0 18px rgba(198,242,78,.8)}
+  .progress .foot{display:flex;justify-content:space-between;margin-top:5px;font:700 8.5px/1 var(--sans);
+    letter-spacing:.12em;color:var(--muted)}
+
+  .hud-right{display:flex;flex-direction:column;align-items:flex-end;gap:8px}
+  .ring{position:relative;width:82px;height:82px}
+  .ring svg{transform:rotate(-90deg)}
+  .ring .n{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    font-family:var(--display);font-size:26px;color:var(--text)}
+  .ring .n.warn{color:var(--pink)}
+  .pizzas{display:flex;align-items:center;gap:6px}
+  .pizzas svg{width:18px;height:18px;color:var(--amber);filter:drop-shadow(0 0 8px rgba(255,201,74,.4))}
+  .pizzas svg.off{color:rgba(246,241,255,.16);filter:none}
+  .pizzas span{font:700 9.5px/1 var(--sans);letter-spacing:.1em;color:var(--muted);margin-left:3px}
+
+  .toast{position:absolute;left:50%;top:112px;transform:translateX(-50%);display:flex;align-items:center;
+    gap:9px;padding:8px 14px;border-radius:8px;background:rgba(12,6,28,.84);border-left:3px solid var(--lime);
+    font:700 12px/1 var(--sans);letter-spacing:.06em;color:#E9FFB0;opacity:0;transition:opacity .3s;
+    pointer-events:none;white-space:nowrap}
+  .toast b{font-family:var(--display);color:var(--pink);letter-spacing:.04em}
+
+  .bottom{position:absolute;left:26px;right:26px;bottom:18px;display:flex;align-items:flex-end;
+    justify-content:space-between;gap:20px;pointer-events:none}
+  .tension{width:290px}
+  .tension .lab{display:flex;justify-content:space-between;font:700 8.5px/1 var(--sans);
+    letter-spacing:.2em;color:var(--muted);margin-bottom:6px}
+  .tension .lab b{color:var(--lime);letter-spacing:.1em}
+  .segs{display:flex;gap:4px}
+  .segs i{flex:1;height:12px;border-radius:3px;background:rgba(246,241,255,.1);box-shadow:inset 0 1px 0 rgba(0,0,0,.4);transition:.12s}
+  .segs i.on{background:var(--lime);box-shadow:0 0 12px rgba(198,242,78,.45)}
+  .segs i.hot{background:var(--amber);box-shadow:0 0 16px rgba(255,201,74,.7)}
+  .keys{display:flex;align-items:center;gap:10px;font:700 9px/1 var(--sans);letter-spacing:.12em;color:var(--muted)}
+  .keys .grp{display:flex;align-items:center;gap:4px}
+  kbd{display:inline-flex;align-items:center;justify-content:center;min-width:24px;height:24px;padding:0 6px;
+    border-radius:6px;background:rgba(246,241,255,.1);border:1px solid rgba(246,241,255,.18);
+    border-bottom-width:3px;font:700 10px/1 var(--sans);color:var(--text)}
+
+  /* ---------- 通用 ---------- */
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:10px;padding:13px 24px;border-radius:11px;
+    background:var(--lime);color:#170A2E;font:900 15px/1 var(--sans);letter-spacing:.06em;border:0;cursor:pointer;
+    box-shadow:0 5px 0 #7FA32E,0 12px 34px rgba(198,242,78,.22)}
+  .btn:hover{filter:brightness(1.05)}
+  .btn:active{transform:translateY(2px);box-shadow:0 3px 0 #7FA32E}
+  .ghost{padding:9px 16px;border-radius:9px;border:1px solid rgba(246,241,255,.16);background:transparent;
+    color:var(--muted);font:700 12px/1 var(--sans);letter-spacing:.1em;cursor:pointer}
+  .ghost:hover{color:var(--text);border-color:rgba(246,241,255,.3)}
+
+  .overlay{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;
+    padding:0 7%;gap:10px;transition:opacity .35s;pointer-events:auto;
+    background:linear-gradient(90deg,rgba(10,5,24,.94) 0%,rgba(10,5,24,.6) 52%,rgba(10,5,24,.4) 100%)}
   .overlay.hidden{opacity:0;pointer-events:none}
-  .overlay h1{margin:0;font-size:64px;font-weight:900;letter-spacing:4px;color:var(--lime);
-    text-shadow:0 0 34px rgba(198,242,78,.55),0 0 80px rgba(198,242,78,.25)}
-  .overlay h2{margin:0;font-size:30px;font-weight:800;color:#fff}
-  .overlay p{margin:0;font-size:14px;letter-spacing:3px;color:var(--muted)}
-  .keys{display:flex;gap:26px;margin:10px 0 4px;flex-wrap:wrap;justify-content:center}
-  .keys div{font-size:12px;color:rgba(255,255,255,.55);letter-spacing:.5px}
-  .keys b{display:inline-block;min-width:26px;padding:4px 7px;margin:0 2px;border-radius:6px;
-    background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);color:#fff;font:600 12px/1.2 ui-monospace,monospace;text-align:center}
-  .go{margin-top:10px;padding:11px 26px;border-radius:999px;background:var(--lime);color:#16082f;
-    font-weight:800;font-size:14px;letter-spacing:2px;border:0;cursor:pointer;box-shadow:0 0 30px rgba(198,242,78,.35)}
-  .go:hover{transform:translateY(-1px)}
-  .stat{margin-top:2px;font:600 13px/1.6 ui-monospace,monospace;color:rgba(255,255,255,.6)}
-  .tension{position:absolute;left:50%;bottom:24px;transform:translateX(-50%);width:220px;height:6px;
-    border-radius:3px;background:rgba(255,255,255,.12);overflow:hidden;opacity:.55;transition:opacity .2s}
-  .tension.hot{opacity:1}
-  .tension i{display:block;height:100%;width:0;border-radius:3px;background:linear-gradient(90deg,#C6F24E,#FFFFFF)}
-  .toast{position:absolute;left:50%;top:118px;transform:translateX(-50%);padding:9px 18px;border-radius:999px;
-    background:rgba(10,4,24,.72);border:1px solid rgba(198,242,78,.25);color:#E9FFB0;font-size:14px;
-    letter-spacing:1px;opacity:0;transition:opacity .3s;pointer-events:none;white-space:nowrap}
+  h1,h2{margin:0;font-weight:400}
+
+  /* 标题 */
+  .logo{font-family:var(--display);font-size:clamp(74px,11vw,140px);line-height:.92;letter-spacing:.02em;
+    color:var(--lime);text-shadow:5px 5px 0 var(--purple),0 0 46px rgba(198,242,78,.3)}
+  .logo-sub{margin-top:10px;font:900 11px/1 var(--sans);letter-spacing:.42em;color:var(--pink)}
+  .tagline{margin-top:26px;font:700 clamp(14px,1.6vw,18px)/1.6 var(--sans);letter-spacing:.04em;color:rgba(246,241,255,.9)}
+  .tagline em{display:inline-block;margin-left:12px;padding:5px 9px;border-radius:6px;font-style:normal;
+    font:700 9.5px/1 var(--sans);letter-spacing:.12em;color:var(--ink);background:var(--cyan)}
+  .cta{margin-top:18px;display:flex;align-items:center;gap:14px}
+  .cta small{font:700 9.5px/1 var(--sans);letter-spacing:.16em;color:var(--muted)}
+  .keys-title{margin-top:26px;display:flex;gap:18px;font:700 10px/1 var(--sans);letter-spacing:.1em;color:var(--muted)}
+  .keys-title div{display:flex;align-items:center;gap:5px}
+
+  /* 关卡卡 / 倒计时 */
+  .kick{font:700 10px/1 var(--sans);letter-spacing:.3em;color:var(--lime)}
+  .lc-title{font-family:var(--display);font-size:clamp(38px,5.4vw,64px);letter-spacing:.06em;line-height:1.1;margin-top:8px}
+  .lc-sub{margin-top:8px;font:700 12px/1.6 var(--sans);letter-spacing:.14em;color:var(--muted)}
+  .cd-num{font-family:var(--display);font-size:clamp(110px,16vw,190px);line-height:1;color:var(--lime);
+    text-shadow:6px 6px 0 var(--purple),0 0 70px rgba(198,242,78,.4);animation:pop .45s ease-out}
+  @keyframes pop{0%{transform:scale(1.35);opacity:0}40%{opacity:1}100%{transform:scale(1);opacity:1}}
+  #levelCard,#countdown{align-items:center;text-align:center;background:rgba(6,2,14,.72);backdrop-filter:blur(4px)}
+  #levelCard .kick,#countdown .kick{margin-bottom:6px}
+  #start{justify-content:flex-start;padding-top:7.5%}
+  #start .tagline{margin-top:auto}
+  #pause{align-items:flex-start}
+  #end{justify-content:center;gap:22px}
+
+  /* 暂停 */
+  #pause{background:linear-gradient(90deg,rgba(8,4,18,.96) 0%,rgba(8,4,18,.7) 55%,rgba(8,4,18,.5) 100%)}
+  .pausebox{width:min(370px,74%);padding:24px 26px;border-radius:16px;background:rgba(18,9,38,.85);
+    border-top:3px solid var(--lime);box-shadow:0 24px 60px rgba(0,0,0,.6)}
+  .pausebox h2{font-family:var(--display);font-size:38px;letter-spacing:.1em;margin-bottom:16px;color:var(--lime)}
+  .prow{display:flex;align-items:center;gap:12px;padding:10px;border-radius:8px;
+    font:700 13.5px/1 var(--sans);letter-spacing:.08em;color:var(--muted);cursor:pointer}
+  .prow.on{background:rgba(198,242,78,.12);color:var(--text)}
+  .prow.on::before{content:"";width:3px;height:15px;border-radius:2px;background:var(--lime)}
+  .prow em{font-style:normal;font:700 9.5px/1 var(--sans);letter-spacing:.14em;color:var(--muted)}
+  .prow.on em{color:var(--lime)}
+  #pause .btn{margin-top:16px;width:100%}
+
+  /* 结算 */
+  .rank-k{font:700 9.5px/1 var(--sans);letter-spacing:.3em;color:var(--muted)}
+  .rank-b{font-family:var(--display);font-size:clamp(96px,14vw,168px);line-height:1;color:var(--lime);
+    text-shadow:6px 6px 0 var(--purple),0 0 60px rgba(198,242,78,.35)}
+  .end-wrap{display:flex;align-items:center;gap:6%}
+  .stars{display:flex;gap:6px}
+  .stars svg{width:24px;height:24px;color:var(--amber);filter:drop-shadow(0 0 10px rgba(255,201,74,.5))}
+  .stars svg.off{color:rgba(246,241,255,.16);filter:none}
+  .end-info{flex:1}
+  .end-title{font-family:var(--display);font-size:clamp(26px,3.2vw,38px);letter-spacing:.08em;margin:10px 0 16px}
+  .statgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;max-width:420px}
+  .statgrid div{background:rgba(12,6,28,.66);border-radius:9px;padding:9px 11px;border-top:2px solid var(--lime)}
+  .statgrid small{font:700 8.5px/1 var(--sans);letter-spacing:.18em;color:var(--muted)}
+  .statgrid b{display:block;margin-top:6px;font-family:var(--display);font-size:21px;letter-spacing:.04em}
+  .best{display:inline-flex;align-items:center;gap:8px;margin-top:14px;padding:6px 10px;border-radius:6px;
+    background:rgba(255,201,74,.14);font:700 9.5px/1 var(--sans);letter-spacing:.16em;color:var(--amber)}
+  .end-cta{margin-top:20px;display:flex;align-items:center;gap:14px}
+  .end-cta small{font:700 9.5px/1 var(--sans);letter-spacing:.14em;color:var(--muted)}
+
+  /* 调试 */
   .debug{position:absolute;left:14px;bottom:14px;width:252px;padding:12px;border-radius:12px;
-    background:rgba(8,3,18,.9);border:1px solid rgba(255,255,255,.12);
-    font:11px/1.6 ui-monospace,monospace;color:#cfc4ea;display:none;pointer-events:auto}
+    background:rgba(8,3,18,.92);border:1px solid rgba(255,255,255,.12);
+    font:11px/1.6 ui-monospace,monospace;color:#cfc4ea;display:none;pointer-events:auto;z-index:60}
   .debug.on{display:block}
   .debug label{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:5px 0;color:#9a8fb8}
   .debug input[type=range]{width:108px;accent-color:#C6F24E}
   .debug .row{display:flex;gap:6px;margin-top:8px}
   .debug button{flex:1;padding:5px 4px;border-radius:6px;border:1px solid rgba(198,242,78,.3);
     background:rgba(198,242,78,.08);color:#dfe9c0;font:600 10px/1.2 inherit;cursor:pointer}
-  .hitflash{position:absolute;inset:0;pointer-events:none;opacity:0;transition:opacity .12s;
-    background:radial-gradient(120% 90% at 50% 50%,rgba(255,60,110,0) 40%,rgba(255,40,90,.55) 100%)}
-  @keyframes breathe{0%,100%{text-shadow:0 0 34px rgba(198,242,78,.42),0 0 80px rgba(198,242,78,.18)}
-    50%{text-shadow:0 0 52px rgba(198,242,78,.75),0 0 120px rgba(198,242,78,.3)}}
-  .overlay h1{animation:breathe 3.4s ease-in-out infinite}
-  @keyframes floaty{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
-  @keyframes pop{0%{transform:scale(1.5);opacity:0}35%{opacity:1}100%{transform:scale(1);opacity:1}}
-  .cd-num{font:900 150px/1 ui-monospace,monospace;color:#C6F24E;
-    text-shadow:0 0 50px rgba(198,242,78,.6),0 0 120px rgba(198,242,78,.35);animation:pop .45s ease-out}
-  .lc-kicker{font:700 12px/1 ui-monospace,monospace;letter-spacing:6px;color:#C6F24E;opacity:.8}
-  .lc-title{font-size:42px;font-weight:900;letter-spacing:4px;margin:6px 0 2px;color:#fff}
-  .lc-sub{font-size:14px;letter-spacing:2px;color:#9a8fb8}
-  .rank{font:900 84px/1 ui-monospace,monospace;color:#C6F24E;
-    text-shadow:0 0 40px rgba(198,242,78,.55);animation:pop .5s ease-out}
-  .best{margin-top:2px;font:600 12px/1.6 ui-monospace,monospace;letter-spacing:1px;color:#FFC94A}
-  .pauseBtns{display:flex;gap:10px;margin-top:8px;flex-wrap:wrap;justify-content:center}
-  .pauseBtns button,.ghost{padding:9px 18px;border-radius:999px;border:1px solid rgba(198,242,78,.28);
-    background:rgba(198,242,78,.07);color:#dfe9c0;font:700 13px/1.2 inherit;letter-spacing:1px;cursor:pointer}
-  .pauseBtns button:hover,.ghost:hover{background:rgba(198,242,78,.16)}
-  .ghost{margin-top:8px;font-size:12px;color:#9a8fb8;border-color:rgba(255,255,255,.14);background:transparent}
 </style>
 </head>
 <body>
@@ -91,9 +180,62 @@
   <div class="vignette"></div>
   <div class="grain"></div>
   <div class="hitflash" id="hitflash"></div>
-  <div class="tension" id="tension"><i></i></div>
-  <div class="toast" id="toast"></div>
 
+  <!-- HUD -->
+  <div class="hud">
+    <div class="hud-left">
+      <div class="lv">
+        <div class="num">01</div>
+        <div class="txt"><small>LEVEL</small>夜光画室</div>
+      </div>
+      <div class="hearts" id="hearts">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 21c-4.6-3.4-8-6.2-8-10a5 5 0 0 1 9-3 5 5 0 0 1 9 3c0 3.8-3.4 6.6-8 10z"/></svg>
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 21c-4.6-3.4-8-6.2-8-10a5 5 0 0 1 9-3 5 5 0 0 1 9 3c0 3.8-3.4 6.6-8 10z"/></svg>
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 21c-4.6-3.4-8-6.2-8-10a5 5 0 0 1 9-3 5 5 0 0 1 9 3c0 3.8-3.4 6.6-8 10z"/></svg>
+      </div>
+    </div>
+
+    <div class="progress">
+      <div class="lab"><span>距离终点</span><span id="progPct">0%</span></div>
+      <div class="bar"><i id="progFill"></i></div>
+      <div class="foot"><span>前厅</span><span>卷帘门</span></div>
+    </div>
+
+    <div class="hud-right">
+      <div class="ring">
+        <svg width="82" height="82" viewBox="0 0 82 82">
+          <circle cx="41" cy="41" r="35" fill="none" stroke="rgba(246,241,255,.12)" stroke-width="6"/>
+          <circle id="ringFg" cx="41" cy="41" r="35" fill="none" stroke="#C6F24E" stroke-width="6"
+            stroke-linecap="round" stroke-dasharray="220" stroke-dashoffset="0"/>
+        </svg>
+        <div class="n" id="timer">60.0</div>
+      </div>
+      <div class="pizzas" id="pizzas">
+        <svg class="pz" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2 22 20H2L12 2z"/><circle cx="12" cy="14" r="1.8" fill="#140A2E"/></svg>
+        <svg class="pz" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2 22 20H2L12 2z"/><circle cx="12" cy="14" r="1.8" fill="#140A2E"/></svg>
+        <svg class="pz" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2 22 20H2L12 2z"/><circle cx="12" cy="14" r="1.8" fill="#140A2E"/></svg>
+        <span id="pizza">0 / 3</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast">按住拉绳</div>
+
+  <div class="bottom">
+    <div class="tension" id="tension">
+      <div class="lab"><span>绳子张力</span><b id="tensionHint">保持松绳</b></div>
+      <div class="segs" id="segs">
+        <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+      </div>
+    </div>
+    <div class="keys">
+      <div class="grp"><kbd>A</kbd><kbd>D</kbd>移动</div>
+      <div class="grp"><kbd>W</kbd>跳</div>
+      <div class="grp"><kbd>F</kbd>拉绳</div>
+    </div>
+  </div>
+
+  <!-- 调试面板 -->
   <div class="debug" id="debug">
     <div>FPS <b id="fps">0</b> · 按 ` 关闭</div>
     <label>重力 <input id="sGrav" type="range" min="1200" max="2800" step="10" value="1950"></label>
@@ -108,65 +250,74 @@
     </div>
   </div>
 
-  <div class="hud">
-    <div class="title">拉丝<span>第 1 关 · 夜光画室</span></div>
-    <div class="right">
-      <div class="timer" id="timer">60.0</div>
-      <div class="pizza" id="pizza">披萨 <b>0</b> / 3</div>
-      <div class="hint">A/D · W · F　｜　←/→ · ↑ · J</div>
-    </div>
-  </div>
-
+  <!-- 标题 -->
   <div class="overlay" id="start">
-    <h1>拉丝</h1>
-    <p>第 1 关 · 夜光画室</p>
-    <div class="keys">
-      <div><b>A</b><b>D</b> 移动　<b>W</b> 跳　<b>F</b> 拉绳</div>
-      <div><b>←</b><b>→</b> 移动　<b>↑</b> 跳　<b>J</b> 拉绳</div>
+    <div class="logo">拉丝</div>
+    <div class="logo-sub">L I M E L A N D</div>
+    <div class="tagline">两个史莱姆，一根绳，一整家店<em>第 1 关 · 夜光画室</em></div>
+    <div class="cta">
+      <button class="btn" id="go">按空格开始</button>
+      <small>2P CO-OP · 60 SEC</small>
     </div>
-    <div class="stat">偷到披萨，两个人一起到终点</div>
-    <button class="go" id="go">空格开始</button>
-    <div class="stat" style="opacity:.45;font-size:11px;margin-top:10px">60 秒 · 双人 · 可单人 + AI</div>
+    <div class="keys-title">
+      <div><kbd>A</kbd><kbd>D</kbd>移动</div>
+      <div><kbd>W</kbd>跳</div>
+      <div><kbd>F</kbd>拉绳</div>
+      <div style="opacity:.5">（P2：方向键 + J）</div>
+    </div>
   </div>
 
   <div class="overlay hidden" id="levelCard">
-    <div class="lc-kicker">LEVEL 01</div>
+    <div class="kick">LEVEL 01</div>
     <div class="lc-title">夜光画室</div>
     <div class="lc-sub">偷到披萨，两个人一起到终点</div>
   </div>
 
   <div class="overlay hidden" id="countdown">
+    <div class="kick">READY</div>
     <div class="cd-num" id="cdNum">3</div>
   </div>
 
   <div class="overlay hidden" id="pause">
-    <h2>暂停</h2>
-    <div class="stat">Esc 继续</div>
-    <div class="pauseBtns">
-      <button id="resumeBtn">继续</button>
-      <button id="restartBtn">重开</button>
-      <button id="muteBtn2">静音</button>
-      <button id="titleBtn">回标题</button>
+    <div class="pausebox">
+      <h2>暂停</h2>
+      <div class="prow on" id="resumeBtn"><em>01</em>继续游戏</div>
+      <div class="prow" id="restartBtn"><em>02</em>重开这一关</div>
+      <div class="prow" id="muteBtn2"><em>03</em>音量</div>
+      <div class="prow" id="titleBtn"><em>04</em>回标题</div>
     </div>
   </div>
 
   <div class="overlay hidden" id="end">
-    <div class="rank" id="rank">A</div>
-    <h2 id="endTitle">逃出来了</h2>
-    <div class="stars" id="endStars">★★★</div>
-    <div class="stat" id="endStat"></div>
-    <div class="best" id="bestLine"></div>
-    <button class="go" id="again">R 再来一局</button>
-    <button class="ghost" id="toTitle">回标题</button>
+    <div class="end-wrap">
+      <div style="text-align:center">
+        <div class="rank-k">RANK</div>
+        <div class="rank-b" id="rank">A</div>
+      </div>
+      <div class="end-info">
+        <div class="stars" id="endStars">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="m12 2 3 6.6 7 .9-5.1 4.8 1.3 7L12 18l-6.2 3.3 1.3-7L2 9.5l7-.9L12 2z"/></svg>
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="m12 2 3 6.6 7 .9-5.1 4.8 1.3 7L12 18l-6.2 3.3 1.3-7L2 9.5l7-.9L12 2z"/></svg>
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="m12 2 3 6.6 7 .9-5.1 4.8 1.3 7L12 18l-6.2 3.3 1.3-7L2 9.5l7-.9L12 2z"/></svg>
+        </div>
+        <div class="end-title" id="endTitle">逃出来了</div>
+        <div class="statgrid" id="endStat"></div>
+        <div class="best" id="bestLine"></div>
+      </div>
+    </div>
+    <div class="end-cta">
+      <button class="btn" id="again">R 再来一局</button>
+      <button class="ghost" id="toTitle">回标题</button>
+    </div>
   </div>
 </div>
 
 <script>
   window.addEventListener('error', function (e) {
-    var box = document.createElement('div');
-    box.style.cssText = 'position:fixed;left:12px;bottom:12px;max-width:70vw;padding:10px 14px;border-radius:8px;background:rgba(120,10,30,.92);color:#ffd7e0;font:12px/1.5 ui-monospace,monospace;z-index:9999;white-space:pre-wrap';
-    box.textContent = '出错：' + (e.message || e.type);
-    document.body.appendChild(box);
+    var d = document.createElement('div');
+    d.textContent = '出错：' + (e.message || e.error);
+    d.style.cssText = 'position:fixed;left:12px;bottom:12px;z-index:99;padding:10px 14px;background:#2a0b1e;color:#ff9ab0;font:12px/1.5 monospace;border-radius:8px;max-width:70vw';
+    document.body.appendChild(d);
   });
 </script>
 <script type="importmap">
