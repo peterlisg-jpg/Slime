@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>拉丝 · 第一关 披萨拼盘</title>
+<style>
+  html,body{margin:0;height:100%;background:#08020F;overflow:hidden;
+    font-family:"PingFang SC","Noto Sans SC","Microsoft YaHei",system-ui,sans-serif;color:#EFE8FF;}
+  .app{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;}
+  .frame{position:relative;border-radius:20px;overflow:hidden;
+    box-shadow:0 30px 90px rgba(0,0,0,.78),0 0 0 1px rgba(198,242,78,.12),0 0 70px rgba(120,60,220,.18);}
+  .frame canvas{display:block;width:100%;height:100%;}
+  .hud{position:absolute;inset:0;pointer-events:none;}
+  .brand{position:absolute;left:24px;top:20px;display:flex;align-items:baseline;gap:9px;}
+  .brand b{font-size:19px;letter-spacing:1px;color:#E9FFB0;text-shadow:0 0 18px rgba(198,242,78,.45);}
+  .brand span{font-size:10.5px;letter-spacing:2.5px;color:rgba(255,255,255,.5);}
+  .stageTag{position:absolute;right:24px;top:22px;font:600 12px/1.5 ui-monospace,monospace;color:rgba(255,255,255,.55);text-align:right}
+  .stageTag b{color:#C6F24E;font-weight:700;font-size:15px}
+  .bar{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:8px 12px;
+    padding:9px 16px;border-radius:999px;background:rgba(255,255,255,.045);
+    border:1px solid rgba(255,255,255,.09);backdrop-filter:blur(8px);max-width:96vw;}
+  button{border:1px solid rgba(198,242,78,.22);background:rgba(198,242,78,.05);color:#DDE9C0;
+    padding:7px 15px;border-radius:999px;font-size:13px;font-weight:600;cursor:pointer;
+    transition:all .16s;font-family:inherit;letter-spacing:.5px;}
+  button:hover{background:rgba(198,242,78,.13);}
+  button.on{background:#C6F24E;color:#1B0A3C;border-color:#C6F24E;box-shadow:0 0 22px rgba(198,242,78,.4);}
+  label{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:#A99BD0;cursor:pointer;}
+  .note{font-size:11.5px;color:#6F5F99;letter-spacing:.5px;}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="frame" id="frame">
+    <canvas id="scene"></canvas>
+    <div class="hud">
+      <div class="brand"><b>拉丝</b><span>披萨拼盘 · LEVEL 01</span></div>
+      <div class="stageTag">第 <b id="stageNum">1</b> / 3 层<br><span id="hintTop">按住 F / J 往上爬</span></div>
+    </div>
+  </div>
+  <div class="bar">
+    <button id="btn2" class="on">双人</button>
+    <button id="btn1">单人 + AI</button>
+    <button id="btnRestart">重来</button>
+    <span class="note">F = 左边拉　·　J = 右边拉　·　两个人同拉会卡住</span>
+  </div>
+</div>
+<script src="level1.js"></script>
+</body>
+</html>
