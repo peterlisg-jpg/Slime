@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>拉丝 LIMELAND · 角色 Spine 骨架方案</title>
+<style>
+  :root{
+    --bg:#0B0616; --panel:#151027; --panel2:#1C1533; --line:#2C2350;
+    --ink:#EDE7FA; --muted:#9A8FB8; --lime:#C6F24E; --pink:#FF8FA8;
+    --cyan:#57E0FF; --violet:#C08BFF; --orange:#FFB35C;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:radial-gradient(1200px 700px at 20% -10%, #241a45 0%, var(--bg) 60%);
+    color:var(--ink); font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Noto Sans SC",segoe ui,sans-serif;
+    line-height:1.7; -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1080px; margin:0 auto; padding:56px 28px 96px}
+  .kicker{font:600 12px/1 ui-monospace,SFMono-Regular,Menlo,monospace; letter-spacing:.22em; color:var(--lime); text-transform:uppercase}
+  h1{font-size:40px; line-height:1.2; margin:14px 0 10px; letter-spacing:-.01em}
+  h1 em{font-style:normal; color:var(--lime)}
+  .sub{color:var(--muted); font-size:16px; max-width:720px}
+  .meta{display:flex; gap:22px; flex-wrap:wrap; margin-top:22px; font:500 12px/1.4 ui-monospace,monospace; color:var(--muted)}
+  .meta b{color:var(--ink); font-weight:600}
+  h2{font-size:23px; margin:56px 0 6px; letter-spacing:-.01em}
+  h2 .n{color:var(--lime); font:600 13px/1 ui-monospace,monospace; margin-right:10px; vertical-align:2px}
+  .lead{color:var(--muted); margin:0 0 20px; max-width:760px}
+  .panel{background:linear-gradient(180deg,var(--panel) 0%, #120d22 100%); border:1px solid var(--line); border-radius:16px; padding:22px}
+  .grid2{display:grid; grid-template-columns:1.05fr .95fr; gap:22px; align-items:start}
+  @media(max-width:860px){.grid2{grid-template-columns:1fr}}
+  figure{margin:0}
+  .canvas{position:relative; border-radius:14px; overflow:hidden; background:#0E0A1C; border:1px solid var(--line)}
+  .canvas img{display:block; width:100%; height:auto; opacity:.92}
+  .canvas svg{position:absolute; inset:0; width:100%; height:100%}
+  figcaption{font-size:12px; color:var(--muted); margin-top:10px}
+  .legend{display:flex; flex-wrap:wrap; gap:8px 16px; margin-top:14px; font:500 11px/1.6 ui-monospace,monospace; color:var(--muted)}
+  .dot{display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:6px; vertical-align:1px}
+  table{width:100%; border-collapse:collapse; font-size:13.5px}
+  th,td{text-align:left; padding:9px 10px; border-bottom:1px solid var(--line); vertical-align:top}
+  th{font:600 11px/1.4 ui-monospace,monospace; letter-spacing:.08em; color:var(--muted); text-transform:uppercase}
+  td code, p code, li code{font:12px/1.5 ui-monospace,monospace; background:#221a3d; border:1px solid #332a58; padding:1px 6px; border-radius:5px; color:#DCD3F5}
+  .tag{display:inline-block; font:600 10px/1 ui-monospace,monospace; letter-spacing:.06em; padding:4px 7px; border-radius:5px; border:1px solid}
+  .t-mesh{color:var(--lime); border-color:#4d6b18; background:#1e2a0c}
+  .t-bone{color:var(--cyan); border-color:#1d5b6b; background:#08222a}
+  .t-fx{color:var(--violet); border-color:#4a3170; background:#1a1030}
+  pre.tree{font:12.5px/1.85 ui-monospace,SFMono-Regular,Menlo,monospace; background:#0E0A1C; border:1px solid var(--line); border-radius:12px; padding:20px; overflow:auto; margin:0}
+  pre.tree b{color:var(--lime); font-weight:600}
+  pre.tree i{color:var(--muted); font-style:normal}
+  pre.tree u{color:var(--cyan); text-decoration:none}
+  pre.tree s{color:var(--pink); text-decoration:none}
+  .cards{display:grid; grid-template-columns:repeat(3,1fr); gap:14px}
+  @media(max-width:760px){.cards{grid-template-columns:1fr}}
+  .card{background:var(--panel2); border:1px solid var(--line); border-radius:12px; padding:16px}
+  .card h4{margin:0 0 6px; font-size:14px}
+  .card p{margin:0; font-size:12.5px; color:var(--muted)}
+  .card .big{font:700 20px/1.2 ui-monospace,monospace; color:var(--lime); display:block; margin-bottom:6px}
+  ul.check{list-style:none; padding:0; margin:0; display:grid; gap:8px}
+  ul.check li{display:flex; gap:10px; font-size:13.5px; align-items:flex-start}
+  ul.check li::before{content:"□"; color:var(--lime); font-size:16px; line-height:1.2}
+  .ok li::before{content:"✓"; color:var(--lime)}
+  .callout{border-left:3px solid var(--lime); background:#141a0b; padding:14px 18px; border-radius:0 10px 10px 0; font-size:13.5px; color:#D9E8B8}
+  .warn{border-left-color:var(--pink); background:#1e0f18; color:#F5CFD9}
+  .small{font-size:12.5px; color:var(--muted)}
+  footer{margin-top:64px; padding-top:22px; border-top:1px solid var(--line); font-size:12px; color:var(--muted); display:flex; justify-content:space-between; gap:16px; flex-wrap:wrap}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="kicker">Layered Art → Spine Mesh → Runtime</div>
+  <h1>角色 Spine 骨架方案 <em>v1</em></h1>
+  <p class="sub">这是把「一张平面图」升级成「会呼吸的软体角色」的施工图。原画按第 1 节拆件，Spine 按第 3–4 节绑骨，程序按第 7 节接运行时。三个角色共用一套骨架，只换皮肤。</p>
+
+  <div class="meta">
+    <span>角色源图 <b>2048 × 2048 PNG</b></span>
+    <span>目标运行时高度 <b>260 px @1080p</b></span>
+    <span>导出 <b>Spine 4.2 · JSON + Atlas</b></span>
+    <span>骨架 <b>1 套 / 皮肤 2 个</b></span>
+  </div>
+
+  <h2><span class="n">01</span>拆件图 · 从这张图开始</h2>
+  <p class="lead">绿色是已完成的示范角色。编号对应下面的图层清单，颜色对应右侧图例。所有坐标都以 2048 画布为基准，原画直接按这个位置切开即可。</p>
+
+  <div class="grid2">
+    <figure>
+      <div class="canvas">
+        <img id="blob" src="data:image/png;base64,__IMG__" alt="green slime">
+        <svg viewBox="0 0 2048 2048" aria-label="拆件与骨架示意">
+          <!-- body mesh -->
+          <rect x="300" y="430" width="1460" height="1470" fill="none" stroke="#C6F24E" stroke-opacity=".4" stroke-width="4" stroke-dasharray="18 12"/>
+          <g stroke="#FFFFFF" stroke-opacity=".13" stroke-width="2.5" stroke-dasharray="7 11">
+            <g id="vgrid"></g>
+            <g id="hgrid"></g>
+          </g>
+          <!-- eyes -->
+          <ellipse cx="820" cy="1145" rx="152" ry="172" fill="none" stroke="#57E0FF" stroke-width="7"/>
+          <ellipse cx="1345" cy="1165" rx="152" ry="172" fill="none" stroke="#57E0FF" stroke-width="7"/>
+          <circle cx="835" cy="1155" r="106" fill="none" stroke="#57E0FF" stroke-width="5" stroke-dasharray="14 10"/>
+          <circle cx="1352" cy="1175" r="106" fill="none" stroke="#57E0FF" stroke-width="5" stroke-dasharray="14 10"/>
+          <!-- mouth -->
+          <rect x="1000" y="1180" width="180" height="200" rx="60" fill="none" stroke="#FF8FA8" stroke-width="7"/>
+          <!-- drips -->
+          <circle cx="966" cy="266" r="128" fill="none" stroke="#C08BFF" stroke-width="7"/>
+          <circle cx="1152" cy="572" r="148" fill="none" stroke="#C08BFF" stroke-width="5" stroke-dasharray="14 10"/>
+          <!-- tentacles -->
+          <path d="M470 1360 Q330 1470 296 1610" fill="none" stroke="#FFB35C" stroke-width="11" stroke-linecap="round"/>
+          <path d="M1590 1360 Q1730 1470 1764 1610" fill="none" stroke="#FFB35C" stroke-width="11" stroke-linecap="round"/>
+          <g fill="#FFB35C">
+            <circle cx="470" cy="1360" r="13"/><circle cx="392" cy="1442" r="13"/><circle cx="330" cy="1530" r="13"/><circle cx="296" cy="1610" r="16"/>
+            <circle cx="1590" cy="1360" r="13"/><circle cx="1668" cy="1442" r="13"/><circle cx="1730" cy="1530" r="13"/><circle cx="1764" cy="1610" r="16"/>
+          </g>
+          <!-- spine -->
+          <path d="M1032 1876 L1032 1600 L1032 1250 L1032 790" fill="none" stroke="#C6F24E" stroke-width="9" stroke-linecap="round"/>
+          <g fill="#0B0616" fill-opacity=".55" stroke="#C6F24E" stroke-width="6">
+            <circle cx="1032" cy="1876" r="24"/><circle cx="1032" cy="1600" r="17"/><circle cx="1032" cy="1250" r="17"/><circle cx="1032" cy="790" r="24"/>
+          </g>
+          <!-- leader lines -->
+          <g stroke="#FFFFFF" stroke-opacity=".45" stroke-width="3">
+            <path d="M300 402 L420 600"/>
+            <path d="M262 902 L700 1120"/>
+            <path d="M268 1822 L350 1625"/>
+            <path d="M1772 1470 L1180 1330"/>
+            <path d="M1778 730 L1080 800"/>
+            <path d="M1778 1052 L1060 1500"/>
+            <path d="M1770 440 L1285 545"/>
+            <path d="M1085 1965 L1040 1890"/>
+          </g>
+          <g font-family="ui-monospace,Menlo,monospace" font-size="36" fill="#FFFFFF" stroke="#0B0616" stroke-width="9" paint-order="stroke" stroke-linejoin="round">
+            <text x="40" y="392">body mesh 8×8</text>
+            <text x="40" y="892">eye / pupil</text>
+            <text x="40" y="1812">tentacle 4骨</text>
+            <text x="1790" y="1460">mouth ×6</text>
+            <text x="1790" y="720">head</text>
+            <text x="1790" y="1042">spine1·2</text>
+            <text x="1790" y="430">drip_head</text>
+            <text x="1150" y="170">drip_top</text>
+            <text x="1085" y="2000">hip · 轴心</text>
+          </g>
+        </svg>
+      </div>
+      <figcaption>拆件与骨架叠图。网格、骨骼、轴心位置都按 2048 原点标注。</figcaption>
+      <div class="legend">
+        <span><i class="dot" style="background:var(--lime)"></i>骨骼 / 身体网格</span>
+        <span><i class="dot" style="background:var(--cyan)"></i>眼睛与瞳孔</span>
+        <span><i class="dot" style="background:var(--pink)"></i>嘴</span>
+        <span><i class="dot" style="background:var(--violet)"></i>泥滴</span>
+        <span><i class="dot" style="background:var(--orange)"></i>触手</span>
+      </div>
+    </figure>
+
+    <div class="panel">
+      <table>
+        <thead><tr><th>#</th><th>图层</th><th>尺寸</th><th>轴心 (px)</th></tr></thead>
+        <tbody>
+          <tr><td>1</td><td><code>body_base</code><br><span class="small">含轮廓、渐变、内阴影</span></td><td>1460×1470</td><td>730, 1470 <span class="small">底中</span></td></tr>
+          <tr><td>2</td><td><code>body_hi</code><br><span class="small">高光，正片叠底/滤色</span></td><td>1460×1470</td><td>同 body_base</td></tr>
+          <tr><td>3</td><td><code>drip_head</code></td><td>300×300</td><td>150, 290 <span class="small">底部</span></td></tr>
+          <tr><td>4</td><td><code>drip_top</code><br><span class="small">漂浮泥滴，独立跟随</span></td><td>260×260</td><td>130, 130 <span class="small">中心</span></td></tr>
+          <tr><td>5</td><td><code>eye_white_L/R</code></td><td>300×324</td><td>中心</td></tr>
+          <tr><td>6</td><td><code>pupil_L/R</code></td><td>192×192</td><td>中心</td></tr>
+          <tr><td>7</td><td><code>eye_hi_L/R</code><br><span class="small">双高光，跟瞳孔走</span></td><td>120×120</td><td>中心</td></tr>
+          <tr><td>8</td><td><code>mouth_01…06</code><br><span class="small">开心/用力/惊恐/晕眩/发呆/胜利</span></td><td>178×150</td><td>中心</td></tr>
+          <tr><td>9</td><td><code>blush_L/R</code></td><td>160×90</td><td>中心</td></tr>
+          <tr><td>10</td><td><code>tentacle_L/R</code><br><span class="small">伸直状态，横向</span></td><td>700×180</td><td>0, 90 <span class="small">根端</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="callout" style="margin-top:22px">
+    <b>拆分原则：</b>所有图层在 2048 画布上原位导出，<b>不要各自裁边再居中</b>。轴心统一在 Spine 里按上表设置，这样两张皮肤、六套表情可以互换而不会错位。
+  </div>
+
+  <h2><span class="n">02</span>为什么要拆成这样</h2>
+  <p class="lead">拆件的标准只有一条：<b>凡是需要独立运动的，就必须独立成层</b>。下面是每个动作真正会用到的自由度。</p>
+  <div class="cards">
+    <div class="card"><span class="big">3</span><h4>身体骨</h4><p>hip → spine1 → spine2 → head，撑起挤压、拉伸、弯曲。软体就靠这三节。</p></div>
+    <div class="card"><span class="big">2</span><h4>眼睛</h4><p>眼白与瞳孔分开，才能实现「看钩子」「看队友」「眨眼不带动瞳孔」。</p></div>
+    <div class="card"><span class="big">6</span><h4>口型</h4><p>六个嘴型覆盖全部情绪，换 attachment 即可，不需要额外动画。</p></div>
+    <div class="card"><span class="big">2×4</span><h4>触手骨</h4><p>每条四节 + IK，抓钩、拉人、甩出全靠它。这是「没有手」的解法。</p></div>
+    <div class="card"><span class="big">1</span><h4>头顶泥滴</h4><p>用 transform 约束延迟跟随，产生二次运动，成本极低但一眼就「活」。</p></div>
+    <div class="card"><span class="big">1</span><h4>漂浮泥滴</h4><p>独立 slot，自己做正弦漂浮，和身体解耦。</p></div>
+  </div>
+
+  <h2><span class="n">03</span>骨骼层级</h2>
+  <p class="lead">Y 轴向上（Spine 默认）。<b>hip 是唯一根骨</b>，所有运动都从它派生，程序只需要控制 hip、两条 IK 目标、两个眼骨。</p>
+<pre class="tree">root
+└─ <b>hip</b>                        <i># 轴心在脚底中心 (1032, 1876)</i>
+   ├─ <b>spine1</b>                    <i># 长度 ≈ 276</i>
+   │  └─ <b>spine2</b>                 <i># 长度 ≈ 350</i>
+   │     └─ <b>head</b>                <i># 长度 ≈ 460，末端在头顶</i>
+   │        ├─ <u>eye_L</u>  → pupil_L → eye_hi_L
+   │        ├─ <u>eye_R</u>  → pupil_R → eye_hi_R
+   │        ├─ <s>mouth</s>          <i># attachment 切换 6 个口型</i>
+   │        ├─ <s>blush_L / blush_R</s>
+   │        └─ <b>drip_head</b>        <i># transform 约束：跟随 head 70%，延迟 120ms</i>
+   ├─ <b>drip_top</b>                 <i># 独立 slot，正弦漂浮</i>
+   ├─ <b>tent_L1 → L2 → L3 → L4</b>   <i># IK 约束，目标 ik_L</i>
+   └─ <b>tent_R1 → R2 → R3 → R4</b>   <i># IK 约束，目标 ik_R</i></pre>
+
+  <div class="callout" style="margin-top:18px">
+    <b>程序只需要碰 5 个东西：</b><code>hip</code>（位置/旋转）、<code>ik_L</code>、<code>ik_R</code>（世界坐标）、<code>eye_L</code>、<code>eye_R</code>（看向目标）。其余全部由动画和约束自己算。
+  </div>
+
+  <h2><span class="n">04</span>网格与权重</h2>
+  <div class="grid2">
+    <div class="panel">
+      <table>
+        <thead><tr><th>对象</th><th>网格</th><th>权重</th></tr></thead>
+        <tbody>
+          <tr><td><code>body_base</code></td><td>8 × 8（81 顶点）</td><td>按高度平滑混合：底部→hip，中部→spine1，上部→spine2，顶部→head。每顶点最多 2 骨。</td></tr>
+          <tr><td><code>tentacle_L/R</code></td><td>6 × 2</td><td>沿长度线性绑到 4 节骨，根端 100% 绑 L1。</td></tr>
+          <tr><td><code>body_hi</code></td><td>8 × 8，与 base 同拓扑</td><td>用 <b>Linked Mesh</b> 跟随 base，避免两套权重不同步。</td></tr>
+          <tr><td>眼 / 嘴 / 泥滴</td><td>Region（不建网格）</td><td>刚性跟随父骨即可。</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="panel">
+      <h4 style="margin:0 0 8px; font-size:14px">为什么是 8×8</h4>
+      <p class="small" style="margin:0 0 12px">软体需要的是「平滑的曲线」，不是高密度。8×8 在弯腰 35° 时仍然看不见棱角，同时保持权重可手调；12×12 以上只会增加调试成本。</p>
+      <h4 style="margin:0 0 8px; font-size:14px">必须做的三件事</h4>
+      <ul class="check">
+        <li>腰部（spine1 附近）权重过渡要有 2 行渐变，否则弯腰会「折纸」。</li>
+        <li>底部两行锁定 hip，保证脚不飘。</li>
+        <li>所有边缘留 <b>4px 扩边（bleed）</b>，否则网格拉伸会露出透明缝。</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2><span class="n">05</span>约束</h2>
+  <table>
+    <thead><tr><th>类型</th><th>对象</th><th>参数</th><th>用途</th></tr></thead>
+    <tbody>
+      <tr><td><span class="tag t-bone">IK</span></td><td><code>tent_L1…L4</code> → <code>ik_L</code></td><td>链长 4，允许拉伸，softness 0</td><td>抓钩时把末端钉在钩子上，身体被拉长</td></tr>
+      <tr><td><span class="tag t-bone">IK</span></td><td><code>tent_R1…R4</code> → <code>ik_R</code></td><td>同上</td><td>拉队友、甩出</td></tr>
+      <tr><td><span class="tag t-fx">Transform</span></td><td><code>drip_head</code> ← <code>head</code></td><td>旋转 70%，位移 60%，延迟 0.12s</td><td>头部泥滴的跟随惯性</td></tr>
+      <tr><td><span class="tag t-fx">Transform</span></td><td><code>eye_hi_L/R</code> ← <code>pupil</code></td><td>100% 跟随</td><td>高光永远在瞳孔上</td></tr>
+    </tbody>
+  </table>
+  <p class="small" style="margin-top:12px">顺序很重要：先 IK，再 Transform。Spine 的约束按列表顺序求解，顺序错了会出现「泥滴追不上头」的抖动。</p>
+
+  <h2><span class="n">06</span>动画清单</h2>
+  <table>
+    <thead><tr><th>Clip</th><th>帧数 @30</th><th>循环</th><th>关键点</th><th>事件</th></tr></thead>
+    <tbody>
+      <tr><td><code>idle</code></td><td>60</td><td>是</td><td>呼吸挤压 ±3%，每 90±30 帧眨眼，泥滴摆动</td><td>—</td></tr>
+      <tr><td><code>grab</code></td><td>18</td><td>否</td><td>触手甩出 → 钉住 → 身体被拉长，头滞后</td><td><code>grab_on</code></td></tr>
+      <tr><td><code>pull</code></td><td>30</td><td>是</td><td>身体后仰、发力，另一条触手朝队友伸</td><td><code>strain</code></td></tr>
+      <tr><td><code>fling</code></td><td>15</td><td>否</td><td>松手瞬间的拉伸 + 回弹，身体拉成水滴形</td><td><code>fling</code></td></tr>
+      <tr><td><code>land</code></td><td>20</td><td>否</td><td>落地压扁 25% → 回弹过冲 → 稳定</td><td><code>land</code></td></tr>
+      <tr><td><code>dizzy</code></td><td>45</td><td>是</td><td>左右摇晃，口型切到晕眩，眼睛转圈</td><td>—</td></tr>
+    </tbody>
+  </table>
+  <p class="small" style="margin-top:12px">口型不单独做动画：在 clip 里打 <b>attachment 关键帧</b>切换 <code>mouth_01…06</code>，一个 clip 内可多次切换。</p>
+
+  <h2><span class="n">07</span>运行时接口</h2>
+  <p class="lead">现在的 <code>stage.js</code> 负责场景、镜头、光。角色层换成 Spine 之后，只需要保留下面这几个调用。</p>
+    <pre class="tree"><i>// 加载</i>
+const atlas = new spine.TextureAtlas("limeland_char.atlas", loader);
+const skel  = new spine.SkeletonJson(new spine.AtlasAttachmentLoader(atlas))
+                 .readSkeletonData(rawData);
+
+<i>// 皮肤与初始动作</i>
+skeleton.setSkinByName("green");          <i>// 或 "pink"</i>
+skeleton.setSlotsToSetupPose();
+state.setAnimation(0, "idle", true);
+
+<i>// 动作切换（不打断循环）</i>
+state.setAnimation(1, "grab", false);
+state.addAnimation(1, "pull", true, 0);
+
+<i>// 事件驱动特效 / 音效</i>
+state.addListener({
+  event: (entry, e) =&gt; {
+    if (e.data.name === "fling") fx.burst(...);
+    if (e.data.name === "grab_on") sfx.grab();
+  }
+});
+
+<i>// 每帧：把钩子世界坐标喂给 IK 目标</i>
+ikL.setPosition(hook.x, hook.y);          <i>// 骨骼世界坐标，Y 向上</i>
+ikR.setPosition(partner.x, partner.y);
+
+<i>// 眼睛看向</i>
+eyeL.setRotation(clamp(angleTo(target) - baseAngle, -12, 12));</pre>
+
+  <h2><span class="n">08</span>导出规范</h2>
+  <div class="grid2">
+    <div class="panel">
+      <table>
+        <tbody>
+          <tr><th>Spine 版本</th><td>4.2.x（与运行时一致，不要跨大版本）</td></tr>
+          <tr><th>数据格式</th><td>调试期 JSON，上线前导出 Binary <code>.skel</code></td></tr>
+          <tr><th>图集</th><td>最大 2048，padding 4，power of 2</td></tr>
+          <tr><th>透明</th><td>Premultiplied Alpha <b>开</b></td></tr>
+          <tr><th>缩放</th><td>1.0 主包；另出 0.5 给低端机</td></tr>
+          <tr><th>命名</th><td><code>limeland_char.json / .atlas / .png</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="panel">
+      <h4 style="margin:0 0 8px; font-size:14px">交付文件</h4>
+      <ul class="check">
+        <li><code>limeland_char.spine</code> 工程源文件</li>
+        <li><code>limeland_char.json</code> + <code>.atlas</code> + <code>.png</code></li>
+        <li><code>green/</code>、<code>pink/</code> 两套分层 PSD（2048）</li>
+        <li>六套口型 PNG（每角色一套）</li>
+        <li>触手 PNG（伸直状态，700×180）</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2><span class="n">09</span>验收标准</h2>
+  <p class="lead">这五条过了，才算这一版落地；任何一条不过，都说明拆件或权重需要返工。</p>
+  <ul class="check">
+    <li>把 <code>spine2</code> 旋转 ±35°，身体轮廓连续，<b>没有接缝、没有折角、没有穿刺</b>。</li>
+    <li>IK 触手能伸到 700px 外的钩子，末端不脱离目标，身体被自然拉长。</li>
+    <li>眨眼时瞳孔和高光不跟着消失，只在眼白内闭合。</li>
+    <li>切换 green / pink 皮肤后，网格和动画完全一致，不出现错位。</li>
+    <li>1080p 下角色高 260px，边缘干净，没有 1px 亮边或暗边（PMA 正确）。</li>
+  </ul>
+
+  <h2><span class="n">10</span>迁移步骤</h2>
+  <table>
+    <thead><tr><th>步骤</th><th>动作</th><th>产出</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td>原画按第 1 节拆件，原位导出</td><td>两套 PSD + 表情 PNG</td></tr>
+      <tr><td>2</td><td>Spine 建骨架、绑网格、做 6 个 clip</td><td><code>.spine</code> 工程</td></tr>
+      <tr><td>3</td><td>导出 JSON + atlas，做第 9 节验收</td><td>可运行资源</td></tr>
+      <tr><td>4</td><td>接入 <code>spine-webgl</code>，替换 <code>drawSprite</code></td><td>角色层切换</td></tr>
+      <tr><td>5</td><td>保留 Canvas2D 作为无 WebGL 降级</td><td><code>?fallback=1</code></td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout warn" style="margin-top:22px">
+    <b>两个已知风险：</b>① 2048 单图切件容易在边缘留下白边，必须做 4px 扩边并在 PS 里检查 alpha；② IK 触手和关卡钩子靠世界坐标同步，若钩子本身在动，需要每帧更新目标而不是只在抓取时设一次。
+  </div>
+
+  <footer>
+    <span>拉丝 LIMELAND · 角色管线方案 v1</span>
+    <span>配套样片：<code>stage.html</code> · 骨架演示：<code>rig.html</code></span>
+  </footer>
+</div>
+<script>
+  // 生成 8×8 网格线（2048 画布坐标）
+  (function () {
+    const x0 = 300, x1 = 1760, y0 = 430, y1 = 1900, n = 8;
+    const vg = document.getElementById('vgrid'), hg = document.getElementById('hgrid');
+    const NS = 'http://www.w3.org/2000/svg';
+    for (let i = 0; i <= n; i++) {
+      const x = x0 + (x1 - x0) * i / n;
+      const l = document.createElementNS(NS, 'line');
+      l.setAttribute('x1', x); l.setAttribute('y1', y0);
+      l.setAttribute('x2', x); l.setAttribute('y2', y1);
+      vg.appendChild(l);
+    }
+    for (let j = 0; j <= n; j++) {
+      const y = y0 + (y1 - y0) * j / n;
+      const l = document.createElementNS(NS, 'line');
+      l.setAttribute('x1', x0); l.setAttribute('y1', y);
+      l.setAttribute('x2', x1); l.setAttribute('y2', y);
+      hg.appendChild(l);
+    }
+  })();
+</script>
+</body>
+</html>
