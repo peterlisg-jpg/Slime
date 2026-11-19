@@ -11,6 +11,8 @@ import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 const W = 1280, H = 720;
 const stageEl = document.getElementById('stage');
 const timerEl = document.getElementById('timer');
+const pizzaEl = document.getElementById('pizza');
+const endStarsEl = document.getElementById('endStars');
 const startEl = document.getElementById('start');
 const endEl = document.getElementById('end');
 
@@ -34,7 +36,7 @@ const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x05010c);
 scene.fog = new THREE.FogExp2(0x05010c, 0.00026);
 
-const camera = new THREE.PerspectiveCamera(26, W / H, 1, 8000);
+const camera = new THREE.PerspectiveCamera(30, W / H, 1, 8000);
 camera.position.set(0, 320, 1500);
 camera.lookAt(0, 320, 0);
 scene.add(camera);
@@ -152,15 +154,19 @@ const EXIT_X = 3820;
 
 const state = {
   started: false, over: false, win: false,
-  time: 60, camX: -200, camY: 320, falls: 0
+  time: 60, camX: -200, camY: 320, falls: 0, pizza: 0, shake: 0
 };
 const checkpoint = { x: -180, y: 0 };
-const p1 = { x: -380, y: 0, vx: 0, vy: 0, grounded: false, squash: 0, jumpQueued: false };
-const p2 = { x: 20, y: 0, vx: 0, vy: 0, grounded: false, squash: 0, jumpQueued: false };
+const p1 = { x: -380, y: 0, vx: 0, vy: 0, grounded: false, squash: 0, jumpQueued: false, hit: 0 };
+const p2 = { x: 20, y: 0, vx: 0, vy: 0, grounded: false, squash: 0, jumpQueued: false, hit: 0 };
 const chars = {};
+const PIZZA_POS = [{ x: 680, y: 210 }, { x: 1450, y: 300 }, { x: 2680, y: 330 }];
+const pizzas = [];
+const fx = [];
+const hazard = { cx: 1360, cy: 270, len: 320, ang: 0, spd: 1.15, mesh: null, glow: null };
 let ropeMesh = null, ropePos = null;
 const ROPE_N = 22;
-const HAND = 150;
+const HAND = 120;
 let ropePts = [], ropeWobble = 0, ropeTaut = false;
 let ropeRest = 330;
 let ready = false;
@@ -257,12 +263,12 @@ function buildCharacter(canvas, tint, x, y) {
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.anisotropy = 4;
   const aspect = canvas.width / canvas.height;
-  const h = 210, w = h * aspect;
+  const h = 170, w = h * aspect;
   const mesh = new THREE.Mesh(
     new THREE.PlaneGeometry(w, h),
     new THREE.MeshBasicMaterial({ map: tex, transparent: true, alphaTest: 0.02, side: THREE.DoubleSide })
   );
-  mesh.position.set(x, y + 105, 20);
+  mesh.position.set(x, y + 85, 20);
   scene.add(mesh);
 
   const glow = new THREE.Sprite(new THREE.SpriteMaterial({
@@ -271,11 +277,11 @@ function buildCharacter(canvas, tint, x, y) {
     depthWrite: false, toneMapped: false
   }));
   glow.scale.set(280, 280, 1);
-  glow.position.set(x, y + 105, 12);
+  glow.position.set(x, y + 85, 12);
   scene.add(glow);
 
   const shadow = new THREE.Mesh(
-    new THREE.PlaneGeometry(150, 54),
+    new THREE.PlaneGeometry(140, 48),
     new THREE.MeshBasicMaterial({
       map: new THREE.CanvasTexture(shadowCanvas()), transparent: true,
       opacity: 0.55, depthWrite: false, toneMapped: false
@@ -358,6 +364,104 @@ function buildLamps() {
   });
 }
 
+function pizzaTexture() {
+  const c = document.createElement('canvas');
+  c.width = c.height = 128;
+  const g = c.getContext('2d');
+  g.translate(64, 64);
+  g.fillStyle = '#F2B44E';
+  g.beginPath(); g.arc(0, 0, 52, 0, Math.PI * 2); g.fill();
+  g.strokeStyle = '#C97C1E'; g.lineWidth = 12;
+  g.beginPath(); g.arc(0, 0, 47, 0, Math.PI * 2); g.stroke();
+  g.fillStyle = '#FFE39A';
+  g.beginPath(); g.arc(-3, 2, 36, 0, Math.PI * 2); g.fill();
+  g.fillStyle = '#D8473C';
+  [[-18, -12], [16, -16], [10, 18], [-22, 16], [0, 0]].forEach(function (p) {
+    g.beginPath(); g.arc(p[0], p[1], 9, 0, Math.PI * 2); g.fill();
+  });
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+
+function buildPizzas() {
+  const tex = pizzaTexture();
+  const glowTex = new THREE.CanvasTexture(radialCanvas());
+  PIZZA_POS.forEach(function (p, i) {
+    const spr = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: tex, transparent: true, depthWrite: false, toneMapped: false
+    }));
+    spr.scale.set(56, 56, 1);
+    spr.position.set(p.x, p.y, 42);
+    scene.add(spr);
+
+    const glow = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: glowTex, color: 0xFFC94A, transparent: true, opacity: 0.26,
+      blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false
+    }));
+    glow.scale.set(120, 120, 1);
+    glow.position.set(p.x, p.y, 40);
+    scene.add(glow);
+
+    pizzas.push({ x: p.x, baseY: p.y, y: p.y, taken: false, sprite: spr, glow: glow, phase: i * 2.1 });
+  });
+}
+
+function buildHazard() {
+  const bar = new THREE.Mesh(
+    new THREE.BoxGeometry(hazard.len, 13, 13),
+    new THREE.MeshBasicMaterial({ color: 0xFF4D8D, toneMapped: false })
+  );
+  bar.position.set(hazard.cx, hazard.cy, 25);
+  scene.add(bar);
+
+  const glow = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: new THREE.CanvasTexture(radialCanvas()), color: 0xFF4D8D,
+    transparent: true, opacity: 0.16, blending: THREE.AdditiveBlending,
+    depthWrite: false, toneMapped: false
+  }));
+  glow.position.set(hazard.cx, hazard.cy, 20);
+  glow.scale.set(300, 300, 1);
+  scene.add(glow);
+
+  hazard.mesh = bar;
+  hazard.glow = glow;
+}
+
+function updatePizzaHUD() {
+  pizzaEl.innerHTML = '披萨 <b>' + state.pizza + '</b> / 3';
+}
+
+function distToSeg(px, py, x1, y1, x2, y2) {
+  const dx = x2 - x1, dy = y2 - y1, l2 = dx * dx + dy * dy;
+  let t = l2 ? ((px - x1) * dx + (py - y1) * dy) / l2 : 0;
+  t = Math.max(0, Math.min(1, t));
+  return Math.hypot(px - (x1 + t * dx), py - (y1 + t * dy));
+}
+
+function ring(x, y, color) {
+  const spr = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: new THREE.CanvasTexture(radialCanvas()), color: color,
+    transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending,
+    depthWrite: false, toneMapped: false
+  }));
+  spr.position.set(x, y, 46);
+  spr.scale.set(40, 40, 1);
+  scene.add(spr);
+  fx.push({ sprite: spr, life: 0.45, max: 0.45 });
+}
+
+function updateFx(dt) {
+  for (let i = fx.length - 1; i >= 0; i--) {
+    const f = fx[i];
+    f.life -= dt;
+    if (f.life <= 0) { scene.remove(f.sprite); fx.splice(i, 1); continue; }
+    const k = 1 - f.life / f.max;
+    f.sprite.scale.set(40 + k * 160, 40 + k * 160, 1);
+    f.sprite.material.opacity = 0.8 * (1 - k);
+  }
+}
+
 function buildMotes() {
   const n = 120;
   const arr = new Float32Array(n * 3);
@@ -409,12 +513,18 @@ window.addEventListener('blur', function () { for (const k in keys) keys[k] = fa
 
 /* ---------------- 游戏逻辑 ---------------- */
 function resetGame() {
-  p1.x = -380; p1.y = 0; p1.vx = 0; p1.vy = 0; p1.grounded = false; p1.squash = 0;
-  p2.x = 20; p2.y = 0; p2.vx = 0; p2.vy = 0; p2.grounded = false; p2.squash = 0;
+  p1.x = -380; p1.y = 0; p1.vx = 0; p1.vy = 0; p1.grounded = false; p1.squash = 0; p1.hit = 0;
+  p2.x = 20; p2.y = 0; p2.vx = 0; p2.vy = 0; p2.grounded = false; p2.squash = 0; p2.hit = 0;
   checkpoint.x = -180; checkpoint.y = 0;
   ropeRest = 330;
   initRope();
   state.time = 60; state.over = false; state.win = false; state.falls = 0;
+  state.pizza = 0; state.shake = 0;
+  pizzas.forEach(function (pz) {
+    pz.taken = false; pz.sprite.visible = true; pz.glow.visible = true;
+  });
+  hazard.ang = 0;
+  updatePizzaHUD();
   state.camX = -200; state.camY = 320;
   endEl.classList.add('hidden');
 }
@@ -435,9 +545,16 @@ function endGame(win) {
   state.over = true;
   state.win = win;
   document.getElementById('endTitle').textContent = win ? '逃出来了' : '时间到';
+  let stars = 0;
+  if (win) {
+    stars = 1;
+    if (state.pizza >= 2 || state.time > 20) stars = 2;
+    if (state.pizza === 3 && state.time > 15) stars = 3;
+  }
+  endStarsEl.textContent = '★'.repeat(stars) + '☆'.repeat(3 - stars);
   document.getElementById('endStat').textContent = win
-    ? '剩余 ' + state.time.toFixed(1) + ' 秒 · 掉下去 ' + state.falls + ' 次'
-    : '差一点 · 掉下去 ' + state.falls + ' 次';
+    ? '剩余 ' + state.time.toFixed(1) + ' 秒 · 披萨 ' + state.pizza + '/3 · 掉下去 ' + state.falls + ' 次'
+    : '差一点 · 披萨 ' + state.pizza + '/3 · 掉下去 ' + state.falls + ' 次';
   endEl.classList.remove('hidden');
   if (win) beep(660, 0.2, 'triangle', 0.05);
 }
@@ -452,15 +569,17 @@ function step(dt) {
   const ps = [p1, p2];
   for (let i = 0; i < 2; i++) {
     const p = ps[i];
-    const left = i === 0 ? keys['KeyA'] : keys['ArrowLeft'];
-    const right = i === 0 ? keys['KeyD'] : keys['ArrowRight'];
+    if (p.hit > 0) p.hit -= dt;
+    const canMove = p.hit <= 0;
+    const left = canMove && (i === 0 ? keys['KeyA'] : keys['ArrowLeft']);
+    const right = canMove && (i === 0 ? keys['KeyD'] : keys['ArrowRight']);
     if (left) p.vx -= 3400 * dt;
     if (right) p.vx += 3400 * dt;
     if (!left && !right) p.vx *= Math.pow(0.0006, dt);
     p.vx = Math.max(-450, Math.min(450, p.vx));
 
     if (p.jumpQueued) {
-      if (p.grounded) { p.vy = 880; p.grounded = false; beep(440, 0.1, 'sine', 0.035); }
+      if (p.grounded && canMove) { p.vy = 880; p.grounded = false; beep(440, 0.1, 'sine', 0.035); }
       p.jumpQueued = false;
     }
     p.vy -= 1950 * dt;
@@ -479,10 +598,44 @@ function step(dt) {
     }
     if (!was && p.grounded) p.squash = 0.2;
     if (p.y < -520) respawn(p);
+
+    // 收集披萨
+    for (let k = 0; k < pizzas.length; k++) {
+      const pz = pizzas[k];
+      if (pz.taken) continue;
+      if (Math.hypot(p.x - pz.x, (p.y + 85) - pz.y) < 58) {
+        pz.taken = true;
+        pz.sprite.visible = false;
+        pz.glow.visible = false;
+        state.pizza++;
+        updatePizzaHUD();
+        beep(900, 0.16, 'triangle', 0.05);
+        ring(pz.x, pz.y, 0xFFC94A);
+      }
+    }
   }
+
+  // 旋转机关
+  if (hazard.mesh) {
+    hazard.ang += dt * hazard.spd;
+    const ex = Math.cos(hazard.ang) * hazard.len / 2;
+    const ey = Math.sin(hazard.ang) * hazard.len / 2;
+    [p1, p2].forEach(function (p) {
+      if (p.hit > 0) return;
+      if (distToSeg(p.x, p.y + 85, hazard.cx - ex, hazard.cy - ey, hazard.cx + ex, hazard.cy + ey) < 54) {
+        p.hit = 0.55;
+        p.vx += (p.x < hazard.cx ? -1 : 1) * 430;
+        p.vy = 470;
+        state.shake = 14;
+        beep(120, 0.22, 'sawtooth', 0.05);
+      }
+    });
+  }
+  state.shake *= Math.pow(0.02, dt * 2.5);
+
   ropeStep(dt);
   state.camX += (Math.max(-260, Math.min(3320, (p1.x + p2.x) / 2 + 60)) - state.camX) * Math.min(1, dt * 4);
-  state.camY += (Math.max(150, Math.min(560, (p1.y + p2.y) / 2 + 120)) - state.camY) * Math.min(1, dt * 3);
+  state.camY += (Math.max(200, Math.min(560, (p1.y + p2.y) / 2 + 140)) - state.camY) * Math.min(1, dt * 3);
 }
 
 function ropeStep(dt) {
@@ -524,10 +677,10 @@ function updateVisuals(dt) {
     const c = i === 0 ? chars.green : chars.pink;
     if (!c) return;
     p.squash *= Math.pow(0.0005, dt * 2.2);
-    c.mesh.position.set(p.x, p.y + 105, 20);
+    c.mesh.position.set(p.x, p.y + 85, 20);
     c.mesh.rotation.z = Math.max(-0.14, Math.min(0.14, p.vx / 2800));
     c.mesh.scale.set(1 + p.squash, 1 - p.squash, 1);
-    c.glow.position.set(p.x, p.y + 105, 12);
+    c.glow.position.set(p.x, p.y + 85, 12);
     c.glow.material.opacity = 0.28 + Math.sin(perf * 3 + i * 2) * 0.05;
 
     let gy = null;
@@ -546,6 +699,21 @@ function updateVisuals(dt) {
       c.shadow.material.opacity = 0.55 * lift;
     }
   });
+
+  // 披萨漂浮
+  for (let i = 0; i < pizzas.length; i++) {
+    const pz = pizzas[i];
+    if (pz.taken) continue;
+    const y = pz.baseY + Math.sin(perf * 2 + pz.phase) * 9;
+    pz.sprite.position.y = y;
+    pz.glow.position.y = y;
+    const s = 1 + Math.sin(perf * 3 + pz.phase) * 0.06;
+    pz.glow.scale.set(120 * s, 120 * s, 1);
+    pz.sprite.material.rotation = Math.sin(perf * 1.5 + pz.phase) * 0.08;
+  }
+
+  if (hazard.mesh) hazard.mesh.rotation.z = hazard.ang;
+  updateFx(dt);
 
   updateRopeVisual(dt);
 }
@@ -658,7 +826,9 @@ function loop(now) {
     timerEl.textContent = state.time.toFixed(1);
   }
 
-  camera.position.set(state.camX, state.camY, 1500);
+  const sx = (Math.random() - 0.5) * state.shake;
+  const sy = (Math.random() - 0.5) * state.shake;
+  camera.position.set(state.camX + sx, state.camY + sy, 1500);
   camera.lookAt(state.camX, state.camY, 0);
   if (ready) composer.render();
   else renderer.clear();
@@ -682,6 +852,8 @@ document.getElementById('start').addEventListener('click', function (e) {
     buildBackground(bgImg);
     buildPlatforms();
     buildLamps();
+    buildPizzas();
+    buildHazard();
     chars.green = buildCharacter(cutoutCanvas(gImg), 0xABE14D, p1.x, p1.y);
     chars.pink = buildCharacter(cutoutCanvas(pImg), 0xFF9AD6, p2.x, p2.y);
     buildRope();

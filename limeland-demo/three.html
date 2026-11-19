@@ -28,6 +28,9 @@
   .right{text-align:right}
   .timer{font:700 34px/1 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:1px;color:#fff;text-shadow:0 0 24px rgba(255,255,255,.3)}
   .timer.warn{color:#FF8FA8;text-shadow:0 0 24px rgba(255,143,168,.6)}
+  .pizza{margin-top:8px;font:600 13px/1.4 ui-monospace,monospace;letter-spacing:1px;color:rgba(255,255,255,.55)}
+  .pizza b{color:#FFC94A}
+  .stars{margin-top:4px;font-size:26px;letter-spacing:6px;color:#FFC94A;text-shadow:0 0 24px rgba(255,201,74,.5)}
   .hint{margin-top:6px;font-size:11px;letter-spacing:.5px;color:rgba(255,255,255,.42)}
   .overlay{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
     gap:12px;background:rgba(4,1,12,.72);backdrop-filter:blur(6px);transition:opacity .35s;pointer-events:auto}
@@ -53,25 +56,28 @@
   <div class="grain"></div>
 
   <div class="hud">
-    <div class="title">拉丝<span>夜光画室 · 60 秒</span></div>
+    <div class="title">拉丝<span>第 1 关 · 夜光画室</span></div>
     <div class="right">
       <div class="timer" id="timer">60.0</div>
+      <div class="pizza" id="pizza">披萨 <b>0</b> / 3</div>
       <div class="hint">A/D · W · F　｜　←/→ · ↑ · J</div>
     </div>
   </div>
 
   <div class="overlay" id="start">
     <h1>拉丝</h1>
-    <p>夜光画室 · 60 秒 · 双人</p>
+    <p>第 1 关 · 夜光画室 · 60 秒</p>
     <div class="keys">
       <div><b>A</b><b>D</b> 移动　<b>W</b> 跳　<b>F</b> 拉绳</div>
       <div><b>←</b><b>→</b> 移动　<b>↑</b> 跳　<b>J</b> 拉绳</div>
     </div>
+    <div class="stat">偷到披萨，两个人一起到终点</div>
     <button class="go" id="go">空格开始</button>
   </div>
 
   <div class="overlay hidden" id="end">
     <h2 id="endTitle">逃出来了</h2>
+    <div class="stars" id="endStars">★★★</div>
     <div class="stat" id="endStat"></div>
     <button class="go" id="again">R 再来一局</button>
   </div>
