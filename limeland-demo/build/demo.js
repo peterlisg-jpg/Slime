@@ -82,6 +82,15 @@ camera.position.set(0, 320, 1500);
 camera.lookAt(0, 320, 0);
 scene.add(camera);
 
+/* 真实光照：让平台、道具、角色处在同一盏灯下 */
+scene.add(new THREE.AmbientLight(0x6a4a9a, 1.05));
+const keyLight = new THREE.DirectionalLight(0xffe6b8, 1.6);
+keyLight.position.set(-520, 900, 700);
+scene.add(keyLight);
+const rimLight = new THREE.DirectionalLight(0x57E0FF, 0.7);
+rimLight.position.set(820, -220, 520);
+scene.add(rimLight);
+
 const composer = new EffectComposer(renderer);
 composer.setSize(W, H);
 composer.addPass(new RenderPass(scene, camera));
@@ -285,10 +294,20 @@ function buildPlatforms() {
     const w = p.x1 - p.x0, cx = (p.x0 + p.x1) / 2;
     const body = new THREE.Mesh(
       new THREE.BoxGeometry(w, 28, 56),
-      new THREE.MeshBasicMaterial({ map: bodyTex })
+      new THREE.MeshLambertMaterial({ map: bodyTex })
     );
     body.position.set(cx, p.y - 14, 0);
     scene.add(body);
+
+    const wallShade = new THREE.Mesh(
+      new THREE.PlaneGeometry(w * 1.02, 74),
+      new THREE.MeshBasicMaterial({
+        map: new THREE.CanvasTexture(shadowCanvas()), transparent: true,
+        opacity: 0.5, depthWrite: false, toneMapped: false
+      })
+    );
+    wallShade.position.set(cx, p.y - 30, -40);
+    scene.add(wallShade);
 
     const edgeColor = colors[i % 3];
     const lip = new THREE.Mesh(
@@ -356,6 +375,35 @@ function buildPlatforms() {
   scene.add(halo);
 }
 
+function characterMaterial(tex, tint) {
+  return new THREE.ShaderMaterial({
+    uniforms: {
+      map: { value: tex },
+      rim: { value: new THREE.Color(tint) }
+    },
+    vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+    fragmentShader: [
+      'uniform sampler2D map;',
+      'uniform vec3 rim;',
+      'varying vec2 vUv;',
+      'void main(){',
+      '  vec4 t = texture2D(map, vUv);',
+      '  if (t.a < 0.06) discard;',
+      '  vec2 p = vUv * 2.0 - 1.0;',
+      '  float r2 = clamp(dot(p, p), 0.0, 1.0);',
+      '  vec3 n = normalize(vec3(p, sqrt(1.0 - r2) + 0.0001));',
+      '  float diff = clamp(dot(n, normalize(vec3(-0.45, 0.55, 0.72))), 0.0, 1.0);',
+      '  float spec = pow(clamp(dot(n, normalize(vec3(-0.15, 0.8, 0.58))), 0.0, 1.0), 20.0);',
+      '  float edge = pow(1.0 - n.z, 2.0);',
+      '  vec3 col = t.rgb * (0.74 + 0.40 * diff);',
+      '  col += vec3(spec * 0.32);',
+      '  col += rim * edge * 0.5;',
+      '  gl_FragColor = vec4(col, 1.0);',
+      '}'
+    ].join('\n')
+  });
+}
+
 function buildCharacter(canvas, tint, x, y) {
   const tex = new THREE.CanvasTexture(canvas);
   tex.colorSpace = THREE.SRGBColorSpace;
@@ -364,7 +412,7 @@ function buildCharacter(canvas, tint, x, y) {
   const h = 170, w = h * aspect;
   const mesh = new THREE.Mesh(
     new THREE.PlaneGeometry(w, h),
-    new THREE.MeshBasicMaterial({ map: tex, transparent: true, alphaTest: 0.02, side: THREE.DoubleSide })
+    characterMaterial(tex, tint)
   );
   mesh.position.set(x, y + 85, 20);
   scene.add(mesh);
@@ -538,14 +586,14 @@ function pizzaTexture() {
   const g = c.getContext('2d');
   g.translate(64, 64);
   g.fillStyle = '#F2B44E';
-  g.beginPath(); g.arc(0, 0, 52, 0, Math.PI * 2); g.fill();
+  g.beginPath(); g.arc(0, 0, 61, 0, Math.PI * 2); g.fill();
   g.strokeStyle = '#C97C1E'; g.lineWidth = 12;
-  g.beginPath(); g.arc(0, 0, 47, 0, Math.PI * 2); g.stroke();
+  g.beginPath(); g.arc(0, 0, 56, 0, Math.PI * 2); g.stroke();
   g.fillStyle = '#FFE39A';
-  g.beginPath(); g.arc(-3, 2, 36, 0, Math.PI * 2); g.fill();
+  g.beginPath(); g.arc(-3, 2, 43, 0, Math.PI * 2); g.fill();
   g.fillStyle = '#D8473C';
-  [[-18, -12], [16, -16], [10, 18], [-22, 16], [0, 0]].forEach(function (p) {
-    g.beginPath(); g.arc(p[0], p[1], 9, 0, Math.PI * 2); g.fill();
+  [[-21, -14], [19, -19], [12, 21], [-26, 19], [0, 0]].forEach(function (p) {
+    g.beginPath(); g.arc(p[0], p[1], 10, 0, Math.PI * 2); g.fill();
   });
   const t = new THREE.CanvasTexture(c);
   t.colorSpace = THREE.SRGBColorSpace;
@@ -556,22 +604,37 @@ function buildPizzas() {
   const tex = pizzaTexture();
   const glowTex = new THREE.CanvasTexture(radialCanvas());
   PIZZA_POS.forEach(function (p, i) {
-    const spr = new THREE.Sprite(new THREE.SpriteMaterial({
-      map: tex, transparent: true, depthWrite: false, toneMapped: false
+    const group = new THREE.Group();
+    const coin = new THREE.Mesh(
+      new THREE.CylinderGeometry(27, 27, 7, 24),
+      [
+        new THREE.MeshStandardMaterial({ color: 0xB4762A, roughness: 0.85 }),
+        new THREE.MeshStandardMaterial({ map: tex, roughness: 0.62 }),
+        new THREE.MeshStandardMaterial({ map: tex, roughness: 0.62 })
+      ]
+    );
+    coin.rotation.x = Math.PI / 2;
+    group.add(coin);
+    group.position.set(p.x, p.y, 40);
+    scene.add(group);
+
+    const shade = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: new THREE.CanvasTexture(radialCanvas()), color: 0x000000,
+      transparent: true, opacity: 0.3, depthWrite: false
     }));
-    spr.scale.set(56, 56, 1);
-    spr.position.set(p.x, p.y, 42);
-    scene.add(spr);
+    shade.scale.set(54, 54, 1);
+    shade.position.set(p.x + 6, p.y - 8, 38);
+    scene.add(shade);
 
     const glow = new THREE.Sprite(new THREE.SpriteMaterial({
       map: glowTex, color: 0xFFC94A, transparent: true, opacity: 0.26,
       blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false
     }));
     glow.scale.set(120, 120, 1);
-    glow.position.set(p.x, p.y, 40);
+    glow.position.set(p.x, p.y, 39);
     scene.add(glow);
 
-    pizzas.push({ x: p.x, baseY: p.y, y: p.y, taken: false, sprite: spr, glow: glow, phase: i * 2.1 });
+    pizzas.push({ x: p.x, baseY: p.y, y: p.y, taken: false, sprite: group, glow: glow, shade: shade, phase: i * 2.1 });
   });
 }
 
@@ -891,7 +954,7 @@ function resetGame() {
   toastT = 0;
   toastEl.style.opacity = 0;
   pizzas.forEach(function (pz) {
-    pz.taken = false; pz.sprite.visible = true; pz.glow.visible = true;
+    pz.taken = false; pz.sprite.visible = true; pz.glow.visible = true; pz.shade.visible = true;
   });
   hazard.ang = 0;
   updatePizzaHUD();
@@ -1137,6 +1200,7 @@ function step(dt) {
         pz.taken = true;
         pz.sprite.visible = false;
         pz.glow.visible = false;
+        pz.shade.visible = false;
         state.pizza++;
         updatePizzaHUD();
         if (state.lives < 3) { state.lives++; updateHearts(); }
@@ -1248,9 +1312,10 @@ function updateVisuals(dt) {
     const y = pz.baseY + Math.sin(perf * 2 + pz.phase) * 9;
     pz.sprite.position.y = y;
     pz.glow.position.y = y;
+    pz.shade.position.set(pz.x + 6, y - 9, 38);
+    pz.sprite.rotation.z = perf * 0.9 + pz.phase;
     const s = 1 + Math.sin(perf * 3 + pz.phase) * 0.06;
     pz.glow.scale.set(120 * s, 120 * s, 1);
-    pz.sprite.material.rotation = Math.sin(perf * 1.5 + pz.phase) * 0.08;
   }
 
   if (hazard.mesh) hazard.mesh.rotation.z = hazard.ang + Math.PI / 2;
