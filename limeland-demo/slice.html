@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>拉丝 · 前厅美术样片（Phaser）</title>
+<style>
+  html,body{margin:0;height:100%;background:#07020f;display:flex;align-items:center;justify-content:center;
+    font-family:"PingFang SC","Noto Sans SC",system-ui,sans-serif;color:#e9e2ff;}
+  #game{width:min(96vw,calc(96vh * 16 / 9));aspect-ratio:16/9;border-radius:18px;overflow:hidden;
+    box-shadow:0 24px 90px rgba(0,0,0,.7),0 0 0 1px rgba(198,242,78,.12),0 0 70px rgba(120,60,220,.18);}
+  #game canvas{width:100%!important;height:100%!important;display:block;}
+  .cap{position:fixed;bottom:14px;left:0;right:0;text-align:center;font-size:12px;color:#6f5f99;letter-spacing:.5px}
+</style>
+</head>
+<body>
+<div id="game"></div>
+<div class="cap">Phaser 3 · 分层插画背景 + 角色 + 光效 · A/D 与 ←/→ 移动 · F 甩出</div>
+<script src="lib/phaser.min.js"></script>
+<script src="slice.js"></script>
+</body>
+</html>
